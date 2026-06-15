@@ -12,9 +12,10 @@ online multiplayer (no server needed).
 
 ## 🎬 Gameplay demo
 
-<video src="https://github.com/Koderguru/dropzone-game/raw/main/gameplay-demo.mp4" controls muted playsinline width="100%"></video>
+![Drop Zone gameplay](https://github.com/Koderguru/dropzone-game/raw/main/gameplay-demo.gif)
 
-> If the player above doesn't load, [click here to watch the demo](https://github.com/Koderguru/dropzone-game/raw/main/gameplay-demo.mp4).
+> The clip above auto-plays on loop right here in the README. Want full quality
+> **with sound**? [Watch / download the MP4](https://github.com/Koderguru/dropzone-game/raw/main/gameplay-demo.mp4).
 
 ---
 
