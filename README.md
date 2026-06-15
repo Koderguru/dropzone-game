@@ -26,8 +26,8 @@ A short recording of the game in action: **[`gameplay-demo.mp4`](gameplay-demo.m
 3. That's it. The game is running.
 
 **Option 2 — play online (GitHub Pages)**
-If GitHub Pages is enabled for this repo, the game is live at:
-`https://<your-username>.github.io/<repo-name>/`
+The game is live here:
+👉 **https://koderguru.github.io/dropzone-game/**
 
 ### Controls
 - **Move:** WASD / Arrow keys (or the on-screen joystick on mobile)
