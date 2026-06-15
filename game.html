@@ -1,0 +1,4211 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Drop Zone — Arcade</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,400..800&family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --bg: #f6f4ee;
+      --paper: #fffdf8;
+      --ink: #080808;
+      --muted: #73706a;
+      --line: #dedad0;
+      --blue: #106cff;
+      --display: "Bricolage Grotesque", "Inter", sans-serif;
+    }
+
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
+    html, body { overflow: hidden; }
+
+    body {
+      font-family: "Inter", sans-serif;
+      background: var(--bg);
+      color: var(--ink);
+      height: 100vh;
+      touch-action: none;
+      -webkit-user-select: none;
+      user-select: none;
+    }
+
+    a { color: inherit; text-decoration: none; }
+
+    canvas#game {
+      position: fixed;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+      display: block;
+      cursor: none;
+    }
+
+    /* ---------- chips / shared ---------- */
+    .back {
+      position: fixed;
+      top: 18px;
+      left: 22px;
+      z-index: 10;
+      background: rgba(255,253,248,.85);
+      border: 1.5px solid var(--ink);
+      border-radius: 999px;
+      padding: 10px 18px;
+      font-size: 12px;
+      font-weight: 800;
+      backdrop-filter: blur(8px);
+      -webkit-backdrop-filter: blur(8px);
+      cursor: pointer;
+    }
+
+    .chip {
+      background: rgba(255,253,248,.85);
+      border: 1.5px solid var(--ink);
+      border-radius: 999px;
+      padding: 10px 16px;
+      font-size: 12px;
+      font-weight: 800;
+      letter-spacing: .04em;
+      backdrop-filter: blur(8px);
+      -webkit-backdrop-filter: blur(8px);
+      display: inline-flex;
+      align-items: center;
+      white-space: nowrap;
+    }
+
+    .chip b {
+      color: var(--blue);
+      font-variant-numeric: tabular-nums;
+      margin-left: 6px;
+    }
+
+    .hud-tr {
+      position: fixed;
+      top: 18px;
+      right: 22px;
+      display: flex;
+      gap: 8px;
+      align-items: center;
+      z-index: 10;
+      flex-wrap: wrap;
+      justify-content: flex-end;
+    }
+
+    .iconbtn {
+      width: 40px;
+      height: 40px;
+      border-radius: 50%;
+      background: rgba(255,253,248,.85);
+      border: 1.5px solid var(--ink);
+      backdrop-filter: blur(8px);
+      -webkit-backdrop-filter: blur(8px);
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      padding: 0;
+      color: var(--ink);
+    }
+    .iconbtn:hover { background: var(--paper); }
+    .iconbtn svg { display: block; }
+
+    /* ---------- bottom HUD ---------- */
+    .hud-bl {
+      position: fixed;
+      bottom: 20px;
+      left: 22px;
+      z-index: 10;
+    }
+    .hud-br {
+      position: fixed;
+      bottom: 20px;
+      right: 22px;
+      z-index: 10;
+      display: flex;
+      flex-direction: column;
+      align-items: flex-end;
+      gap: 7px;
+    }
+    .bar-wrap {
+      width: 140px;
+      height: 9px;
+      border: 1.5px solid var(--ink);
+      border-radius: 999px;
+      background: rgba(255,253,248,.6);
+      overflow: hidden;
+      margin-left: 10px;
+    }
+    .bar-fill {
+      height: 100%;
+      width: 100%;
+      background: var(--blue);
+      border-radius: 999px;
+    }
+    #reloadWrap {
+      width: 120px;
+      height: 5px;
+      border: 1.5px solid var(--ink);
+      border-radius: 999px;
+      background: rgba(255,253,248,.6);
+      overflow: hidden;
+      margin-right: 8px;
+      opacity: 0;
+      transition: opacity .12s;
+    }
+    #reloadWrap.on { opacity: 1; }
+    #reloadFill {
+      height: 100%;
+      width: 0%;
+      background: var(--blue);
+    }
+    .eyebrow-mini {
+      color: var(--blue);
+      font-size: 10px;
+      font-weight: 900;
+      letter-spacing: .12em;
+      text-transform: uppercase;
+      margin-right: 2px;
+    }
+
+    /* ---------- crosshair (fixed at screen center, FPS) ---------- */
+    #xhair {
+      position: fixed;
+      left: 50%; top: 50%;
+      width: 26px; height: 26px;
+      margin: -13px 0 0 -13px;
+      pointer-events: none;
+      z-index: 14;
+    }
+    #xhair .xr { position: absolute; inset: 0; border: 1.5px solid var(--ink); border-radius: 50%; }
+    #xhair .xr2 { inset: 7px; }
+    #xhair .xd {
+      position: absolute; left: 50%; top: 50%;
+      width: 4px; height: 4px; margin: -2px 0 0 -2px;
+      background: var(--blue); border-radius: 50%;
+    }
+    #xhair .tk {
+      position: absolute;
+      width: 2.5px; height: 8px;
+      background: #fff;
+      box-shadow: 0 0 3px rgba(8,8,8,.55);
+      border-radius: 2px;
+      opacity: 0;
+    }
+    #xhair.hit .tk { opacity: 1; }
+    #xhair.kill .tk { background: #e23d3d; box-shadow: 0 0 3px rgba(8,8,8,.55); }
+
+    /* ---------- kill score popup near crosshair ---------- */
+    #killPop {
+      position: fixed;
+      left: 50%; top: 50%;
+      transform: translate(-50%, -52px);
+      z-index: 14;
+      pointer-events: none;
+      font-weight: 900;
+      font-size: 14px;
+      letter-spacing: .02em;
+      color: #e23d3d;
+      opacity: 0;
+      font-variant-numeric: tabular-nums;
+      text-shadow: 0 1px 0 rgba(255,253,248,.8);
+    }
+    #xhair .tk1 { left: -7px;  top: -7px;  transform: rotate(-45deg); }
+    #xhair .tk2 { right: -7px; top: -7px;  transform: rotate(45deg); }
+    #xhair .tk3 { left: -7px;  bottom: -7px; transform: rotate(45deg); }
+    #xhair .tk4 { right: -7px; bottom: -7px; transform: rotate(-45deg); }
+
+    /* ---------- pointer-lock hint ---------- */
+    #lockHint {
+      position: fixed;
+      left: 50%;
+      bottom: 86px;
+      transform: translateX(-50%);
+      z-index: 11;
+      font-size: 11px;
+      pointer-events: none;
+    }
+
+    /* ---------- sniper scope overlay (ADS) ---------- */
+    #scopeOv {
+      position: fixed;
+      inset: 0;
+      z-index: 13;
+      pointer-events: none;
+      opacity: 0;
+      transition: opacity .14s ease;
+    }
+    #scopeOv.on { opacity: 1; }
+    body.scoped #xhair { display: none; }
+    /* the lens: a centered circle, everything outside it blacked out via a giant shadow */
+    #scopeOv .lens {
+      position: absolute;
+      left: 50%; top: 50%;
+      width: 84vmin; height: 84vmin;
+      margin: -42vmin 0 0 -42vmin;
+      border-radius: 50%;
+      box-shadow:
+        0 0 0 100vmax rgba(6,7,9,.94),
+        inset 0 0 70px 26px rgba(6,8,12,.7),
+        inset 0 0 0 3px rgba(8,8,8,.9);
+    }
+    /* faint blue glass tint + outer brass-ish ring */
+    #scopeOv .glass {
+      position: absolute;
+      left: 50%; top: 50%;
+      width: 84vmin; height: 84vmin;
+      margin: -42vmin 0 0 -42vmin;
+      border-radius: 50%;
+      border: 5px solid rgba(20,22,26,.9);
+      box-shadow: inset 0 0 120px rgba(16,108,255,.10);
+      background: radial-gradient(ellipse at 38% 32%, rgba(255,255,255,.06), rgba(255,255,255,0) 38%);
+    }
+    /* reticle cross — thin in the middle, thick "duplex" posts toward the edge */
+    #scopeOv .rl { position: absolute; left: 50%; top: 50%; background: rgba(8,8,8,.92); }
+    #scopeOv .rl.v { width: 1.4px; height: 84vmin; margin: -42vmin 0 0 -.7px; }
+    #scopeOv .rl.h { height: 1.4px; width: 84vmin; margin: -.7px 0 0 -42vmin; }
+    #scopeOv .post { position: absolute; left: 50%; top: 50%; background: rgba(8,8,8,.92); }
+    #scopeOv .post.pt { width: 4px; height: 30vmin; margin: -42vmin 0 0 -2px; }
+    #scopeOv .post.pb { width: 4px; height: 30vmin; margin: 12vmin 0 0 -2px; }
+    #scopeOv .post.pl { height: 4px; width: 30vmin; margin: -2px 0 0 -42vmin; }
+    #scopeOv .post.pr { height: 4px; width: 30vmin; margin: -2px 0 0 12vmin; }
+    #scopeOv .ctr {
+      position: absolute; left: 50%; top: 50%;
+      width: 5px; height: 5px; margin: -2.5px 0 0 -2.5px;
+      background: #e23d3d; border-radius: 50%;
+      box-shadow: 0 0 4px rgba(226,61,61,.8);
+    }
+    /* mil-dot ticks down the lower vertical post */
+    #scopeOv .mil { position: absolute; left: 50%; top: 50%; width: 7px; height: 1.6px; margin-left: -3.5px; background: rgba(8,8,8,.8); }
+    #scopeOv .m1 { margin-top: 5vmin; }
+    #scopeOv .m2 { margin-top: 9vmin; }
+    #scopeOv .m3 { margin-top: 13vmin; }
+    #scopeZoom {
+      position: absolute;
+      left: 50%; top: 50%;
+      margin: 28vmin 0 0 -42vmin;
+      width: 84vmin;
+      text-align: center;
+      color: rgba(255,253,248,.75);
+      font-size: 12px;
+      font-weight: 800;
+      letter-spacing: .18em;
+    }
+    /* on-screen scope toggle (touch / click) */
+    #scopeBtn {
+      position: fixed;
+      bottom: 84px;
+      right: 22px;
+      z-index: 10;
+      display: none;
+    }
+    #scopeBtn.show { display: inline-flex; }
+    #scopeBtn.on { background: var(--ink); color: #fff; }
+
+    /* ---------- vignette ---------- */
+    #vignette {
+      position: fixed;
+      inset: 0;
+      pointer-events: none;
+      z-index: 12;
+      opacity: 0;
+      background: radial-gradient(ellipse at center, rgba(226,61,61,0) 42%, rgba(226,61,61,.55) 100%);
+    }
+
+    /* ---------- banners / countdown ---------- */
+    #banner, #count {
+      position: fixed;
+      left: 50%; top: 42%;
+      transform: translate(-50%, -50%);
+      font-family: var(--display);
+      font-optical-sizing: auto;
+      font-weight: 800;
+      letter-spacing: -.04em;
+      color: var(--ink);
+      pointer-events: none;
+      z-index: 13;
+      opacity: 0;
+      text-align: center;
+      white-space: nowrap;
+    }
+    #banner { font-size: 76px; }
+    #count { font-size: 124px; }
+    #banner .bn-tag {
+      display: block;
+      font-family: "Inter", sans-serif;
+      color: var(--blue);
+      font-size: 13px;
+      font-weight: 900;
+      letter-spacing: .14em;
+      margin-bottom: 6px;
+    }
+
+    /* ---------- overlays ---------- */
+    .overlay {
+      position: fixed;
+      inset: 0;
+      display: grid;
+      place-items: center;
+      z-index: 20;
+      background: rgba(246,244,238,.55);
+      backdrop-filter: blur(7px);
+      -webkit-backdrop-filter: blur(7px);
+      cursor: default;
+    }
+
+    .card {
+      background: var(--paper);
+      border: 1.5px solid var(--ink);
+      border-radius: 32px;
+      padding: 44px 52px;
+      text-align: center;
+      max-width: 560px;
+      box-shadow: 0 40px 100px rgba(8,8,8,.18);
+    }
+
+    .card .tag {
+      color: var(--blue);
+      font-weight: 900;
+      font-size: 12px;
+      letter-spacing: .12em;
+      text-transform: uppercase;
+      margin-bottom: 14px;
+    }
+
+    .card h1 {
+      font-family: var(--display);
+      font-optical-sizing: auto;
+      font-size: 66px;
+      letter-spacing: -.04em;
+      line-height: .9;
+      font-weight: 800;
+    }
+
+    .card p {
+      color: var(--muted);
+      line-height: 1.65;
+      margin: 18px 0 24px;
+      font-size: 15px;
+    }
+
+    .ctl-list {
+      display: flex;
+      flex-direction: column;
+      gap: 11px;
+      margin: 24px auto 28px;
+      max-width: 360px;
+      text-align: left;
+    }
+    .ctl {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      font-size: 13.5px;
+      font-weight: 600;
+      color: var(--ink);
+    }
+    .ctl .ic {
+      flex: 0 0 34px;
+      width: 34px; height: 34px;
+      border: 1.5px solid var(--ink);
+      border-radius: 11px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      background: var(--bg);
+    }
+    .ctl span b { color: var(--blue); }
+
+    .pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 10px;
+      background: var(--ink);
+      color: #fff;
+      border: none;
+      border-radius: 999px;
+      padding: 17px 28px;
+      font-weight: 800;
+      font-size: 14px;
+      cursor: pointer;
+      font-family: inherit;
+      letter-spacing: -.01em;
+      transition: transform .25s ease;
+    }
+    .pill:hover { transform: translateY(-2px); }
+    .pill .dot {
+      width: 14px; height: 14px;
+      border-radius: 50%;
+      background: var(--blue);
+    }
+
+    .home-link {
+      display: inline-block;
+      margin-top: 18px;
+      color: var(--muted);
+      font-weight: 700;
+      font-size: 13px;
+      cursor: pointer;
+    }
+
+    .stats {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 10px;
+      margin: 22px 0 26px;
+    }
+    .stat {
+      border: 1.5px solid var(--line);
+      border-radius: 18px;
+      padding: 13px 6px 11px;
+      background: var(--bg);
+    }
+    .stat .sl {
+      color: var(--blue);
+      font-size: 9.5px;
+      font-weight: 900;
+      letter-spacing: .11em;
+      text-transform: uppercase;
+      margin-bottom: 4px;
+    }
+    .stat .sv {
+      font-family: var(--display);
+      font-size: 21px;
+      font-weight: 800;
+      letter-spacing: -.02em;
+      font-variant-numeric: tabular-nums;
+    }
+    #bestLine { margin: 14px 0 20px; }
+    #bestLine.newbest { color: var(--blue); font-weight: 800; }
+
+    /* ---------- touch joystick ---------- */
+    #joy {
+      position: fixed;
+      width: 96px; height: 96px;
+      border: 1.5px solid var(--ink);
+      border-radius: 50%;
+      background: rgba(255,253,248,.4);
+      backdrop-filter: blur(4px);
+      -webkit-backdrop-filter: blur(4px);
+      z-index: 9;
+      pointer-events: none;
+      display: none;
+      margin: -48px 0 0 -48px;
+    }
+    #joyKnob {
+      position: absolute;
+      left: 50%; top: 50%;
+      width: 38px; height: 38px;
+      margin: -19px 0 0 -19px;
+      border-radius: 50%;
+      background: var(--ink);
+      border: 2px solid var(--paper);
+    }
+    #touchHint { display: none; }
+    body.coarse #touchHint { display: flex; }
+
+    /* ---------- multiplayer menu block ---------- */
+    .mp-block {
+      border-top: 1.5px solid var(--line);
+      margin-top: 26px;
+      padding-top: 20px;
+    }
+    .mp-eyebrow {
+      color: var(--blue);
+      font-size: 11px;
+      font-weight: 900;
+      letter-spacing: .12em;
+      text-transform: uppercase;
+      margin-bottom: 12px;
+    }
+    .mp-btn {
+      background: var(--bg);
+      border: 1.5px solid var(--ink);
+      border-radius: 999px;
+      padding: 10px 18px;
+      font-weight: 800;
+      font-size: 12.5px;
+      cursor: pointer;
+      font-family: inherit;
+      color: var(--ink);
+    }
+    .mp-btn:hover { background: var(--paper); }
+    .mp-btn:disabled { opacity: .55; cursor: default; }
+    #mpHome { display: flex; gap: 10px; justify-content: center; flex-wrap: wrap; }
+    #mpJoinRow { display: flex; gap: 8px; justify-content: center; align-items: center; flex-wrap: wrap; }
+    #mpJoinInput {
+      width: 116px;
+      text-align: center;
+      border: 1.5px solid var(--ink);
+      border-radius: 14px;
+      font-family: var(--display);
+      font-size: 19px;
+      font-weight: 800;
+      letter-spacing: .18em;
+      text-transform: uppercase;
+      padding: 8px 6px;
+      background: var(--paper);
+      color: var(--ink);
+      outline: none;
+    }
+    #mpCodeRow { display: flex; align-items: center; justify-content: center; gap: 14px; margin-bottom: 10px; }
+    #mpCodeTxt {
+      font-family: var(--display);
+      font-size: 46px;
+      font-weight: 800;
+      letter-spacing: .14em;
+      line-height: 1;
+    }
+    #mpList { display: flex; flex-direction: column; gap: 5px; margin: 10px auto 14px; max-width: 280px; font-size: 13px; font-weight: 700; }
+    #mpList .mp-row { border: 1.5px solid var(--line); border-radius: 12px; padding: 7px 12px; background: var(--bg); }
+    #mpNote { color: #e23d3d; font-size: 12.5px; font-weight: 700; margin-top: 10px; }
+    #mpWaitNote { color: var(--muted); font-size: 13px; font-weight: 600; margin-top: 8px; }
+    #guestWait { color: var(--muted); font-weight: 700; font-size: 13px; margin-top: 14px; }
+    #mpPauseNote { color: var(--blue); font-size: 12.5px; font-weight: 700; margin: -10px 0 18px; }
+    #downChip, #elimChip {
+      position: fixed;
+      left: 50%;
+      top: 58%;
+      transform: translateX(-50%);
+      z-index: 13;
+      color: #e23d3d;
+      border-color: #e23d3d;
+    }
+    #deathFx {
+      position: fixed;
+      inset: 0;
+      pointer-events: none;
+      z-index: 12;
+      opacity: 0;
+      background: radial-gradient(ellipse at center, rgba(8,8,8,.45) 30%, rgba(8,8,8,.92) 100%);
+    }
+    #mpModeRow {
+      display: flex;
+      gap: 8px;
+      justify-content: center;
+      flex-wrap: wrap;
+      margin-bottom: 12px;
+    }
+    .mode-chip.on {
+      background: var(--ink);
+      color: #fff;
+      border-color: var(--ink);
+    }
+    .mode-chip.on:hover { background: var(--ink); }
+    #mpModeLabel {
+      color: var(--muted);
+      font-size: 12.5px;
+      font-weight: 700;
+      margin-bottom: 10px;
+    }
+    #healFx {
+      position: fixed;
+      inset: 0;
+      pointer-events: none;
+      z-index: 12;
+      opacity: 0;
+      background: radial-gradient(ellipse at center, rgba(53,194,94,0) 45%, rgba(53,194,94,.45) 100%);
+    }
+    #roomChip b { letter-spacing: .06em; }
+
+    .hidden { display: none !important; }
+
+    @media (max-width: 640px) {
+      .card { padding: 32px 24px; margin: 0 14px; }
+      .card h1 { font-size: 44px; }
+      #banner { font-size: 46px; }
+      #count { font-size: 88px; }
+      .hud-tr { top: 64px; gap: 6px; }
+      .chip { padding: 8px 12px; font-size: 11px; }
+      .stats { grid-template-columns: repeat(2, 1fr); }
+    }
+  </style>
+</head>
+
+<body>
+  <canvas id="game"></canvas>
+
+  <a class="back" href="/">← Menu</a>
+
+  <div class="hud-tr">
+    <span class="chip">SCORE<b id="hudScore">0</b></span>
+    <span class="chip">BEST<b id="hudBest">0</b></span>
+    <span class="chip" id="waveChip">WAVE<b id="hudWave">1</b></span>
+    <span class="chip hidden" id="duelChip"><span class="eyebrow-mini">Duel</span><b id="duelChipTxt">YOU 0 — 0 RIVAL</b></span>
+    <span class="chip">KILLS<b id="hudKills">0</b></span>
+    <span class="chip hidden" id="roomChip"><span class="eyebrow-mini">Room</span><b id="roomChipTxt"></b></span>
+    <button class="iconbtn" id="pauseBtn" aria-label="Pause" title="Pause (P)">
+      <svg width="15" height="15" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+        <rect x="6" y="4.5" width="4" height="15" rx="1.4"></rect>
+        <rect x="14" y="4.5" width="4" height="15" rx="1.4"></rect>
+      </svg>
+    </button>
+    <button class="iconbtn" id="muteBtn" aria-label="Mute" title="Mute (M)">
+      <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+        <polygon points="4,9.5 8,9.5 13,5 13,19 8,14.5 4,14.5" fill="currentColor" stroke="none"></polygon>
+        <path id="muteWaves" d="M16.5 9.2a4.4 4.4 0 0 1 0 5.6 M18.8 6.8a8 8 0 0 1 0 10.4"></path>
+        <line id="muteSlash" x1="4" y1="20" x2="21" y2="4" class="hidden" stroke="#e23d3d" stroke-width="2.4"></line>
+      </svg>
+    </button>
+  </div>
+
+  <div class="hud-bl">
+    <span class="chip"><span class="eyebrow-mini">Health</span><span class="bar-wrap"><span class="bar-fill" id="hpFill" style="display:block"></span></span></span>
+  </div>
+
+  <div class="hud-br">
+    <div id="reloadWrap"><div id="reloadFill"></div></div>
+    <span class="chip"><span class="eyebrow-mini">Ammo</span><b id="ammoTxt">30 / 30</b></span>
+  </div>
+
+  <div id="xhair" class="hidden">
+    <div class="xr"></div>
+    <div class="xr xr2"></div>
+    <div class="xd"></div>
+    <div class="tk tk1"></div><div class="tk tk2"></div><div class="tk tk3"></div><div class="tk tk4"></div>
+  </div>
+
+  <!-- SNIPER SCOPE (aim down sights) -->
+  <div id="scopeOv">
+    <div class="lens"></div>
+    <div class="glass"></div>
+    <div class="rl v"></div>
+    <div class="rl h"></div>
+    <div class="post pt"></div><div class="post pb"></div>
+    <div class="post pl"></div><div class="post pr"></div>
+    <div class="mil m1"></div><div class="mil m2"></div><div class="mil m3"></div>
+    <div class="ctr"></div>
+    <div id="scopeZoom">4× ZOOM</div>
+  </div>
+
+  <button class="iconbtn" id="scopeBtn" aria-label="Scope" title="Aim (right-click)">
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
+      <circle cx="12" cy="12" r="8"></circle>
+      <line x1="12" y1="2" x2="12" y2="6"></line>
+      <line x1="12" y1="18" x2="12" y2="22"></line>
+      <line x1="2" y1="12" x2="6" y2="12"></line>
+      <line x1="18" y1="12" x2="22" y2="12"></line>
+      <circle cx="12" cy="12" r="1.5" fill="currentColor" stroke="none"></circle>
+    </svg>
+  </button>
+
+  <div id="lockHint" class="chip hidden">Click to lock aim · Right-click to scope</div>
+
+  <div id="killPop"></div>
+
+  <div id="vignette"></div>
+  <div id="healFx"></div>
+  <div id="deathFx"></div>
+  <div id="downChip" class="chip hidden">DOWN — respawning next wave</div>
+  <div id="elimChip" class="chip hidden">ELIMINATED — respawning…</div>
+  <div id="banner"><span class="bn-tag">Incoming</span><span id="bannerTxt">WAVE 1</span></div>
+  <div id="count">3</div>
+
+  <div id="joy"><div id="joyKnob"></div></div>
+
+  <!-- MENU -->
+  <div class="overlay" id="menu">
+    <div class="card">
+      <div class="tag">Arcade</div>
+      <h1>DROP ZONE</h1>
+      <p>Voxel arena. Zombies incoming. You've been dropped onto a block-built battleground crawling with the undead — hold the zone, survive the waves, climb the board.</p>
+      <div class="ctl-list">
+        <div class="ctl">
+          <span class="ic">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#080808" stroke-width="1.7" stroke-linejoin="round">
+              <rect x="9" y="3" width="6" height="6" rx="1.4"></rect>
+              <rect x="2" y="12" width="6" height="6" rx="1.4"></rect>
+              <rect x="9" y="12" width="6" height="6" rx="1.4"></rect>
+              <rect x="16" y="12" width="6" height="6" rx="1.4"></rect>
+            </svg>
+          </span>
+          <span><b>WASD</b> — move</span>
+        </div>
+        <div class="ctl">
+          <span class="ic">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#080808" stroke-width="1.7" stroke-linecap="round">
+              <circle cx="12" cy="12" r="7"></circle>
+              <circle cx="12" cy="12" r="1.6" fill="#106cff" stroke="none"></circle>
+              <line x1="12" y1="2" x2="12" y2="5.5"></line>
+              <line x1="12" y1="18.5" x2="12" y2="22"></line>
+              <line x1="2" y1="12" x2="5.5" y2="12"></line>
+              <line x1="18.5" y1="12" x2="22" y2="12"></line>
+            </svg>
+          </span>
+          <span><b>Mouse</b> — look &amp; shoot (click canvas to lock aim)</span>
+        </div>
+        <div class="ctl">
+          <span class="ic">
+            <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="#080808" stroke-width="1.7" stroke-linecap="round">
+              <circle cx="12" cy="12" r="7.5"></circle>
+              <line x1="12" y1="2.5" x2="12" y2="6"></line>
+              <line x1="12" y1="18" x2="12" y2="21.5"></line>
+              <line x1="2.5" y1="12" x2="6" y2="12"></line>
+              <line x1="18" y1="12" x2="21.5" y2="12"></line>
+              <circle cx="12" cy="12" r="1.4" fill="#106cff" stroke="none"></circle>
+            </svg>
+          </span>
+          <span><b>Right-click</b> — aim down scope (4× zoom)</span>
+        </div>
+        <div class="ctl">
+          <span class="ic">
+            <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="#080808" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+              <polyline points="6,13 12,7 18,13"></polyline>
+              <polyline points="6,19 12,13 18,19"></polyline>
+            </svg>
+          </span>
+          <span><b>Shift</b> — sprint</span>
+        </div>
+        <div class="ctl">
+          <span class="ic">
+            <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="#080808" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+              <polyline points="6,11 12,5 18,11"></polyline>
+              <line x1="12" y1="5" x2="12" y2="19"></line>
+            </svg>
+          </span>
+          <span><b>Space</b> — jump</span>
+        </div>
+        <div class="ctl">
+          <span class="ic">
+            <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="#080808" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M20 12a8 8 0 1 1-2.34-5.66"></path>
+              <polyline points="20 2 20 7 15 7"></polyline>
+            </svg>
+          </span>
+          <span><b>R</b> — reload</span>
+        </div>
+        <div class="ctl">
+          <span class="ic">
+            <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="#080808" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+              <circle cx="12" cy="12" r="8"></circle>
+              <circle cx="12" cy="12" r="2.5" fill="#106cff" stroke="none"></circle>
+              <line x1="12" y1="4" x2="12" y2="7"></line>
+              <line x1="12" y1="17" x2="12" y2="20"></line>
+              <line x1="4" y1="12" x2="7" y2="12"></line>
+              <line x1="17" y1="12" x2="20" y2="12"></line>
+            </svg>
+          </span>
+          <span><b>Raiders</b> shoot back — keep moving</span>
+        </div>
+        <div class="ctl" id="touchHint">
+          <span class="ic">
+            <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="#080808" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M9 11.5V5a1.7 1.7 0 0 1 3.4 0v5.5l4.6 1.4a2 2 0 0 1 1.4 2.3l-.8 4a3 3 0 0 1-3 2.3H11a3 3 0 0 1-2.4-1.2L5 14.6a1.6 1.6 0 0 1 2.4-2.1L9 14"></path>
+            </svg>
+          </span>
+          <span><b>Touch</b> — drag left half to move, drag right half to look, tap right half to fire</span>
+        </div>
+      </div>
+      <button class="pill" id="startBtn">Deploy <span class="dot"></span></button>
+      <div class="mp-block">
+        <div class="mp-eyebrow">Play with friends</div>
+        <div id="mpHome">
+          <button class="mp-btn" id="mpCreateBtn">Create room</button>
+          <button class="mp-btn" id="mpJoinToggleBtn">Join room</button>
+        </div>
+        <div id="mpJoinRow" class="hidden">
+          <input id="mpJoinInput" maxlength="4" autocomplete="off" spellcheck="false" placeholder="CODE">
+          <button class="mp-btn" id="mpJoinBtn">Join</button>
+          <button class="mp-btn" id="mpJoinCancelBtn">Back</button>
+        </div>
+        <div id="mpLobby" class="hidden">
+          <div id="mpCodeRow" class="hidden">
+            <span id="mpCodeTxt">----</span>
+            <button class="mp-btn" id="mpCopyBtn">Copy</button>
+          </div>
+          <div id="mpModeRow" class="hidden">
+            <button class="mp-btn mode-chip on" id="mpModeCoop">Co-op · zombies</button>
+            <button class="mp-btn mode-chip" id="mpModeDuel">Duel · 1v1</button>
+          </div>
+          <div id="mpModeLabel" class="hidden">Mode: Co-op · zombies</div>
+          <div id="mpList"></div>
+          <button class="pill hidden" id="mpStartBtn">Start match <span class="dot"></span></button>
+          <div id="mpWaitNote" class="hidden">Waiting for host to start…</div>
+        </div>
+        <div id="mpNote" class="hidden"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- PAUSE -->
+  <div class="overlay hidden" id="pauseOv">
+    <div class="card">
+      <div class="tag">Standby</div>
+      <h1>Paused</h1>
+      <p>The zombies are frozen in place. Catch your breath, then get back in it.</p>
+      <div id="mpPauseNote" class="hidden">Paused locally — the match keeps running.</div>
+      <button class="pill" id="resumeBtn">Resume <span class="dot"></span></button>
+    </div>
+  </div>
+
+  <!-- GAME OVER -->
+  <div class="overlay hidden" id="over">
+    <div class="card">
+      <div class="tag" id="overTag">Eliminated</div>
+      <h1 id="finalScore">0</h1>
+      <p id="bestLine">Best: 0</p>
+      <div class="stats" id="statsGrid">
+        <div class="stat"><div class="sl">Kills</div><div class="sv" id="stKills">0</div></div>
+        <div class="stat"><div class="sl">Waves</div><div class="sv" id="stWaves">0</div></div>
+        <div class="stat"><div class="sl">Accuracy</div><div class="sv" id="stAcc">0%</div></div>
+        <div class="stat"><div class="sl">Survived</div><div class="sv" id="stTime">0:00</div></div>
+      </div>
+      <button class="pill" id="retryBtn">Drop Again <span class="dot"></span></button>
+      <div id="guestWait" class="hidden">Waiting for host to restart…</div>
+    </div>
+  </div>
+
+  <!-- HOST DISCONNECTED -->
+  <div class="overlay hidden" id="hostGone">
+    <div class="card">
+      <div class="tag">Connection lost</div>
+      <h1>Host left</h1>
+      <p>The host disconnected, so the match can't continue. Reload to start fresh.</p>
+      <button class="pill" id="reloadBtn">Reload <span class="dot"></span></button>
+    </div>
+  </div>
+
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/peerjs/1.5.2/peerjs.min.js"></script>
+  <script>
+  (function () {
+    "use strict";
+
+    /* ================= DOM ================= */
+    var $ = function (id) { return document.getElementById(id); };
+    var canvas = $("game");
+    var hudScore = $("hudScore"), hudBest = $("hudBest"), hudWave = $("hudWave"), hudKills = $("hudKills");
+    var hpFill = $("hpFill"), ammoTxt = $("ammoTxt"), reloadWrap = $("reloadWrap"), reloadFill = $("reloadFill");
+    var xhair = $("xhair"), vignette = $("vignette"), lockHint = $("lockHint");
+    var banner = $("banner"), bannerTxt = $("bannerTxt"), countEl = $("count");
+    var menu = $("menu"), pauseOv = $("pauseOv"), over = $("over");
+    var startBtn = $("startBtn"), resumeBtn = $("resumeBtn"), retryBtn = $("retryBtn");
+    var pauseBtn = $("pauseBtn"), muteBtn = $("muteBtn"), muteSlash = $("muteSlash"), muteWaves = $("muteWaves");
+    var finalScore = $("finalScore"), bestLine = $("bestLine");
+    var stKills = $("stKills"), stWaves = $("stWaves"), stAcc = $("stAcc"), stTime = $("stTime");
+    var joy = $("joy"), joyKnob = $("joyKnob");
+    var roomChip = $("roomChip"), roomChipTxt = $("roomChipTxt"), downChip = $("downChip"), healFx = $("healFx");
+    var mpHome = $("mpHome"), mpCreateBtn = $("mpCreateBtn"), mpJoinToggleBtn = $("mpJoinToggleBtn");
+    var mpJoinRow = $("mpJoinRow"), mpJoinInput = $("mpJoinInput"), mpJoinBtn = $("mpJoinBtn"), mpJoinCancelBtn = $("mpJoinCancelBtn");
+    var mpLobby = $("mpLobby"), mpCodeRow = $("mpCodeRow"), mpCodeTxt = $("mpCodeTxt"), mpCopyBtn = $("mpCopyBtn");
+    var mpList = $("mpList"), mpStartBtn = $("mpStartBtn"), mpWaitNote = $("mpWaitNote"), mpNote = $("mpNote");
+    var guestWait = $("guestWait"), mpPauseNote = $("mpPauseNote"), hostGone = $("hostGone"), reloadBtn = $("reloadBtn");
+    var waveChip = $("waveChip"), duelChip = $("duelChip"), duelChipTxt = $("duelChipTxt");
+    var elimChip = $("elimChip"), deathFx = $("deathFx"), killPop = $("killPop");
+    var overTag = $("overTag"), statsGrid = $("statsGrid");
+    var scopeOv = $("scopeOv"), scopeBtn = $("scopeBtn");
+    var mpModeRow = $("mpModeRow"), mpModeCoop = $("mpModeCoop"), mpModeDuel = $("mpModeDuel"), mpModeLabel = $("mpModeLabel");
+
+    var isCoarse = window.matchMedia && window.matchMedia("(pointer: coarse)").matches;
+    if (isCoarse) document.body.classList.add("coarse");
+
+    /* ================= AUDIO (WebAudio, lazy) ================= */
+    var AC = null, master = null, noiseBuf = null;
+    var muted = localStorage.getItem("psDropMuted") === "1";
+
+    function initAudio() {
+      if (AC) { if (AC.state === "suspended") AC.resume(); return; }
+      var Ctx = window.AudioContext || window.webkitAudioContext;
+      if (!Ctx) return;
+      AC = new Ctx();
+      master = AC.createGain();
+      master.gain.value = muted ? 0 : .2;
+      master.connect(AC.destination);
+      noiseBuf = AC.createBuffer(1, Math.floor(AC.sampleRate * .3), AC.sampleRate);
+      var d = noiseBuf.getChannelData(0);
+      for (var i = 0; i < d.length; i++) d[i] = Math.random() * 2 - 1;
+    }
+
+    function tone(type, f0, f1, dur, vol, at) {
+      if (!AC) return;
+      var t = AC.currentTime + (at || 0);
+      var o = AC.createOscillator(), g = AC.createGain();
+      o.type = type;
+      o.frequency.setValueAtTime(f0, t);
+      if (f1 && f1 !== f0) o.frequency.exponentialRampToValueAtTime(Math.max(20, f1), t + dur);
+      g.gain.setValueAtTime(vol, t);
+      g.gain.exponentialRampToValueAtTime(.001, t + dur);
+      o.connect(g); g.connect(master);
+      o.start(t); o.stop(t + dur + .02);
+    }
+
+    function sGun() {
+      if (!AC) return;
+      var t = AC.currentTime;
+      var src = AC.createBufferSource();
+      src.buffer = noiseBuf;
+      src.playbackRate.value = .85 + Math.random() * .3;
+      var bp = AC.createBiquadFilter();
+      bp.type = "bandpass"; bp.frequency.value = 850 + Math.random() * 400; bp.Q.value = .7;
+      var g = AC.createGain();
+      g.gain.setValueAtTime(.65, t);
+      g.gain.exponentialRampToValueAtTime(.001, t + .08);
+      src.connect(bp); bp.connect(g); g.connect(master);
+      src.start(t); src.stop(t + .1);
+      tone("sine", 165 + Math.random() * 30, 55, .11, .7);
+    }
+    function sReload() { tone("square", 2300, 1800, .03, .35); tone("square", 1700, 2400, .035, .35, .68); }
+    function sTick() { tone("square", 1500, 1500, .035, .3); }
+    function sThump() { tone("sine", 110, 38, .26, .65); }
+    function sHurt() { tone("sawtooth", 170, 70, .28, .42); }
+    function sChime() { tone("sine", 660, 660, .14, .3); tone("sine", 990, 990, .22, .3, .1); }
+    function sHorn() { tone("sawtooth", 196, 294, .5, .28); tone("sawtooth", 294, 440, .5, .2, .04); }
+    function sBeep(go) { tone("sine", go ? 1320 : 880, go ? 1320 : 880, go ? .25 : .12, .32); }
+    function sOver() { tone("triangle", 440, 150, .9, .4); tone("triangle", 220, 80, 1.0, .3, .08); }
+    function sLand() { tone("sine", 96, 42, .14, .32); }
+    function sGunQ() { tone("sine", 150, 60, .08, .18); tone("square", 900, 400, .04, .08); }
+
+    function applyMuteUI() {
+      if (muted) { muteSlash.classList.remove("hidden"); muteWaves.classList.add("hidden"); }
+      else { muteSlash.classList.add("hidden"); muteWaves.classList.remove("hidden"); }
+    }
+    function toggleMute() {
+      muted = !muted;
+      localStorage.setItem("psDropMuted", muted ? "1" : "0");
+      if (master) master.gain.value = muted ? 0 : .2;
+      applyMuteUI();
+    }
+    applyMuteUI();
+
+    /* ================= THREE SETUP ================= */
+    var renderer = new THREE.WebGLRenderer({ canvas: canvas, antialias: true });
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 1.5));
+    renderer.outputEncoding = THREE.sRGBEncoding;
+
+    var scene = new THREE.Scene();
+    scene.background = new THREE.Color(0x9fd1ff); // simple Minecraft-ish light blue sky
+    scene.fog = new THREE.Fog(0x9fd1ff, 80, 215);
+
+    var BASE_FOV = 75, SPRINT_FOV = 82;
+    var camera = new THREE.PerspectiveCamera(BASE_FOV, 1, .08, 320);
+    camera.rotation.order = "YXZ";
+    camera.position.set(0, 13, 24);
+    scene.add(camera); // camera IS the player; viewmodel hangs off it
+
+    function resize() {
+      renderer.setSize(window.innerWidth, window.innerHeight);
+      camera.aspect = window.innerWidth / window.innerHeight;
+      camera.updateProjectionMatrix();
+    }
+    resize();
+    window.addEventListener("resize", resize);
+
+    scene.add(new THREE.HemisphereLight(0xbfe3ff, 0x8a7f63, 1.0));
+    var sun = new THREE.DirectionalLight(0xffffff, .7);
+    sun.position.set(8, 14, 6);
+    scene.add(sun);
+
+    /* ================= PIXEL TEXTURES (Minecraft look, generated in-code) ================= */
+    /* 8x8 random speckle from a palette, nearest-filtered so each texel is a crisp pixel */
+    function pixelTexture(colors, draw) {
+      var c = document.createElement("canvas");
+      c.width = 8; c.height = 8;
+      var g = c.getContext("2d");
+      for (var y = 0; y < 8; y++) for (var x = 0; x < 8; x++) {
+        g.fillStyle = colors[(Math.random() * colors.length) | 0];
+        g.fillRect(x, y, 1, 1);
+      }
+      if (draw) draw(g); // optional detail pass (faces, plank seams...)
+      var t = new THREE.CanvasTexture(c);
+      t.magFilter = THREE.NearestFilter;
+      t.minFilter = THREE.NearestFilter;
+      return t;
+    }
+    /* vertical wood grain for logs: one palette color per column + a few knots */
+    function grainTexture(colors) {
+      var c = document.createElement("canvas");
+      c.width = 8; c.height = 8;
+      var g = c.getContext("2d");
+      for (var x = 0; x < 8; x++) {
+        g.fillStyle = colors[(Math.random() * colors.length) | 0];
+        g.fillRect(x, 0, 1, 8);
+      }
+      for (var i = 0; i < 5; i++) {
+        g.fillStyle = colors[(Math.random() * colors.length) | 0];
+        g.fillRect((Math.random() * 8) | 0, (Math.random() * 8) | 0, 1, 2);
+      }
+      var t = new THREE.CanvasTexture(c);
+      t.magFilter = THREE.NearestFilter;
+      t.minFilter = THREE.NearestFilter;
+      return t;
+    }
+
+    var grassMat = new THREE.MeshLambertMaterial({ map: pixelTexture(["#5cb24a", "#54a844", "#62bb50", "#4d9e3f", "#58b047"]) });
+    var dirtMat  = new THREE.MeshLambertMaterial({ map: pixelTexture(["#8a6242", "#7c5639", "#94693f", "#74512f"]) });
+    var leafMat  = new THREE.MeshLambertMaterial({ map: pixelTexture(["#3e8f33", "#357f2b", "#46a03a", "#2f7526"]) });
+    var logMat   = new THREE.MeshLambertMaterial({ map: grainTexture(["#6b4a2e", "#5d3f26", "#785432", "#634428"]) });
+    var plankMat = new THREE.MeshLambertMaterial({
+      map: pixelTexture(["#b08a55", "#a87f4c", "#bd9560", "#9c7445"], function (g) {
+        g.fillStyle = "#7a5a33"; // plank seams
+        g.fillRect(0, 0, 8, 1);
+        g.fillRect(0, 4, 8, 1);
+      })
+    });
+    var cobbleMat = new THREE.MeshLambertMaterial({ map: pixelTexture(["#7d7d7d", "#6f6f6f", "#8a8a8a", "#636363", "#949494"]) });
+    var ironMat   = new THREE.MeshLambertMaterial({ map: pixelTexture(["#3a3a3e", "#2e2e32", "#46464b"]) });
+    var darkIronMat = new THREE.MeshLambertMaterial({ map: pixelTexture(["#1c1c1f", "#222226", "#161618"]) });
+    var skinTanMat  = new THREE.MeshLambertMaterial({ map: pixelTexture(["#d9b38c", "#cfa67e", "#e0bd97"]) });
+    var cloudMat = new THREE.MeshLambertMaterial({ color: 0xffffff });
+
+    /* ================= BLOCK TERRAIN (96x96 unit-cube arena, instanced) ================= */
+    var GRID = 96, B = 1.25, HALF_IDX = (GRID - 1) / 2; // bigger arena — world spans about +/-60
+    var WORLD_HALF = HALF_IDX * B;                       // ~59.4 world units to the arena edge
+    var PLAY_HALF = WORLD_HALF - 7;                      // movement clamp keeps you off the lip
+    var heights = new Int8Array(GRID * GRID);            // quantized surface level per column
+
+    /* gentler height field: large flat-ish play area, raised rim (2-4 blocks) hugging the edges */
+    function terrainH(x, z) {
+      var d = Math.max(Math.abs(x), Math.abs(z));
+      var e = (d - (WORLD_HALF - 16)) / 13;
+      if (e < 0) e = 0; if (e > 1) e = 1;
+      var edge = e * e;
+      var n =
+        Math.sin(x * .13 + 1.7) * Math.cos(z * .12 + .6) +
+        .5 * Math.sin(x * .24 + z * .21 + 2.4) +
+        .35 * Math.sin(x * .07 - z * .09 + 1.1);
+      return n * (.45 + edge * .8) + edge * 3.4;
+    }
+
+    /* quantized surface height (top face y) for the column containing (x,z) —
+       the same data used to place blocks, so walking goes up/down in steps */
+    function blockHeightAt(x, z) {
+      var ix = Math.round(x / B + HALF_IDX);
+      var iz = Math.round(z / B + HALF_IDX);
+      if (ix < 0) ix = 0; else if (ix > GRID - 1) ix = GRID - 1;
+      if (iz < 0) iz = 0; else if (iz > GRID - 1) iz = GRID - 1;
+      return heights[iz * GRID + ix] * B;
+    }
+
+    (function buildBlocks() {
+      var ix, iz, i, l;
+      for (iz = 0; iz < GRID; iz++) {
+        for (ix = 0; ix < GRID; ix++) {
+          l = Math.round(terrainH((ix - HALF_IDX) * B, (iz - HALF_IDX) * B));
+          if (l < 0) l = 0; if (l > 4) l = 4; // rim tops out at 4 blocks
+
+          heights[iz * GRID + ix] = l;
+        }
+      }
+      var box = new THREE.BoxGeometry(B, B, B);
+      var m4 = new THREE.Matrix4();
+
+      /* grass: one surface cube per column */
+      var grassMesh = new THREE.InstancedMesh(box, grassMat, GRID * GRID);
+      var n = 0;
+      var dirtSpots = []; // x,y,z triples for exposed-cliff fill
+      for (iz = 0; iz < GRID; iz++) {
+        for (ix = 0; ix < GRID; ix++) {
+          l = heights[iz * GRID + ix];
+          var wx = (ix - HALF_IDX) * B, wz = (iz - HALF_IDX) * B;
+          m4.makeTranslation(wx, l * B - B * .5, wz);
+          grassMesh.setMatrixAt(n++, m4);
+          /* dirt beneath exposed edges: fill down to the lowest 4-neighbor */
+          var minN = l;
+          var nb = ix > 0 ? heights[iz * GRID + ix - 1] : 0;        if (nb < minN) minN = nb;
+          nb = ix < GRID - 1 ? heights[iz * GRID + ix + 1] : 0;     if (nb < minN) minN = nb;
+          nb = iz > 0 ? heights[(iz - 1) * GRID + ix] : 0;          if (nb < minN) minN = nb;
+          nb = iz < GRID - 1 ? heights[(iz + 1) * GRID + ix] : 0;   if (nb < minN) minN = nb;
+          var depth = Math.min(3, l - minN);
+          for (var k = 1; k <= depth; k++) dirtSpots.push(wx, (l - k) * B - B * .5, wz);
+        }
+      }
+      grassMesh.instanceMatrix.needsUpdate = true;
+      scene.add(grassMesh);
+
+      var dirtMesh = new THREE.InstancedMesh(box, dirtMat, Math.max(1, dirtSpots.length / 3));
+      for (i = 0; i < dirtSpots.length; i += 3) {
+        m4.makeTranslation(dirtSpots[i], dirtSpots[i + 1], dirtSpots[i + 2]);
+        dirtMesh.setMatrixAt(i / 3, m4);
+      }
+      dirtMesh.count = dirtSpots.length / 3;
+      dirtMesh.instanceMatrix.needsUpdate = true;
+      scene.add(dirtMesh);
+    })();
+
+    /* ================= MINECRAFT TREES (instanced logs + leaves) ================= */
+    var treeList = []; // {x, z, baseY, topY, canopyY0, canopyY1} for bullet impact checks
+
+    (function buildTrees() {
+      var TC = 1.0; // tree cube size
+      var usedCells = {};
+      var logSpots = [], leafSpots = [];
+      var placed = 0, guard = 0;
+      while (placed < 46 && guard++ < 700) {
+        var a = Math.random() * Math.PI * 2;
+        var r = 11 + Math.random() * 40;
+        var x = Math.cos(a) * r, z = Math.sin(a) * r;
+        /* snap to a block column, dedupe on a coarse 2-cell key so trees never overlap */
+        var ix = Math.round(x / B + HALF_IDX), iz = Math.round(z / B + HALF_IDX);
+        var key = (ix >> 1) + "_" + (iz >> 1);
+        if (usedCells[key]) continue;
+        usedCells[key] = true;
+        var wx = (ix - HALF_IDX) * B, wz = (iz - HALF_IDX) * B;
+        var base = blockHeightAt(wx, wz);
+        var h = 4 + ((Math.random() * 2) | 0); // 4-5 trunk cubes
+        for (var k = 0; k < h; k++) logSpots.push(wx, base + (k + .5) * TC, wz);
+        /* canopy blob: two 5x5 layers + one 3x3 cap, corners randomly skipped */
+        var ox, oz;
+        for (var ly = 0; ly < 2; ly++) {
+          var cy = base + (h - .5 + ly) * TC;
+          for (ox = -2; ox <= 2; ox++) for (oz = -2; oz <= 2; oz++) {
+            if (ly === 0 && ox === 0 && oz === 0) continue; // trunk passes through
+            if (Math.abs(ox) === 2 && Math.abs(oz) === 2 && Math.random() < .6) continue;
+            leafSpots.push(wx + ox * TC, cy, wz + oz * TC);
+          }
+        }
+        var ty = base + (h + 1.5) * TC;
+        for (ox = -1; ox <= 1; ox++) for (oz = -1; oz <= 1; oz++) {
+          if (Math.abs(ox) === 1 && Math.abs(oz) === 1 && Math.random() < .4) continue;
+          leafSpots.push(wx + ox * TC, ty, wz + oz * TC);
+        }
+        treeList.push({
+          x: wx, z: wz, baseY: base,
+          topY: base + (h - 1) * TC,
+          canopyY0: base + (h - 1) * TC,
+          canopyY1: base + (h + 2) * TC
+        });
+        placed++;
+      }
+      var cube = new THREE.BoxGeometry(TC, TC, TC);
+      var m4 = new THREE.Matrix4();
+      var logs = new THREE.InstancedMesh(cube, logMat, Math.max(1, logSpots.length / 3));
+      for (var i = 0; i < logSpots.length; i += 3) {
+        m4.makeTranslation(logSpots[i], logSpots[i + 1], logSpots[i + 2]);
+        logs.setMatrixAt(i / 3, m4);
+      }
+      logs.count = logSpots.length / 3;
+      logs.instanceMatrix.needsUpdate = true;
+      scene.add(logs);
+      var leaves = new THREE.InstancedMesh(cube, leafMat, Math.max(1, leafSpots.length / 3));
+      for (var j = 0; j < leafSpots.length; j += 3) {
+        m4.makeTranslation(leafSpots[j], leafSpots[j + 1], leafSpots[j + 2]);
+        leaves.setMatrixAt(j / 3, m4);
+      }
+      leaves.count = leafSpots.length / 3;
+      leaves.instanceMatrix.needsUpdate = true;
+      scene.add(leaves);
+    })();
+
+    /* ================= COVER: plank crates + cobble stacks ================= */
+    (function buildCover() {
+      var i, a, r, x, z;
+      var crateGeo = new THREE.BoxGeometry(B, B, B);
+      for (i = 0; i < 13; i++) {
+        a = Math.random() * Math.PI * 2;
+        r = 6 + Math.random() * 34;
+        x = Math.cos(a) * r; z = Math.sin(a) * r;
+        var crate = new THREE.Mesh(crateGeo, plankMat);
+        crate.position.set(x, blockHeightAt(x, z) + B * .5, z);
+        scene.add(crate);
+      }
+      /* cobble-gray block stacks (2-3 cubes) as extra cover */
+      var stackCube = new THREE.BoxGeometry(1.1, 1.1, 1.1);
+      var m4 = new THREE.Matrix4();
+      var spots = [];
+      for (i = 0; i < 12; i++) {
+        a = Math.random() * Math.PI * 2;
+        r = 8 + Math.random() * 34;
+        x = Math.cos(a) * r; z = Math.sin(a) * r;
+        var base = blockHeightAt(x, z);
+        var hh = 2 + ((Math.random() * 2) | 0);
+        for (var k = 0; k < hh; k++) spots.push(x, base + .55 + k * 1.1, z);
+      }
+      var stacks = new THREE.InstancedMesh(stackCube, cobbleMat, spots.length / 3);
+      for (i = 0; i < spots.length; i += 3) {
+        m4.makeTranslation(spots[i], spots[i + 1], spots[i + 2]);
+        stacks.setMatrixAt(i / 3, m4);
+      }
+      stacks.instanceMatrix.needsUpdate = true;
+      scene.add(stacks);
+
+      /* plank spawn pad at center */
+      var pad = new THREE.Mesh(new THREE.BoxGeometry(2.6, .18, 2.6), plankMat);
+      pad.position.set(0, blockHeightAt(0, 0) + .09, 0);
+      scene.add(pad);
+    })();
+
+    /* ================= VOXEL CLOUDS (instanced flat white cube clusters, drifting) ================= */
+    var cloudMesh;
+    (function buildClouds() {
+      var spots = [];
+      for (var c = 0; c < 16; c++) {
+        var cx = (Math.random() - .5) * 250;
+        var cz = (Math.random() - .5) * 250;
+        var cy = 36 + Math.random() * 9;
+        var nC = 5 + ((Math.random() * 6) | 0);
+        for (var k = 0; k < nC; k++) {
+          spots.push(
+            cx + ((Math.random() * 4) | 0) * 2.4 - 4.8,
+            cy + (Math.random() < .25 ? 1.2 : 0),
+            cz + ((Math.random() * 3) | 0) * 2.4 - 2.4
+          );
+        }
+      }
+      var geo = new THREE.BoxGeometry(2.4, 1.2, 2.4);
+      cloudMesh = new THREE.InstancedMesh(geo, cloudMat, spots.length / 3);
+      var m4 = new THREE.Matrix4();
+      for (var i = 0; i < spots.length; i += 3) {
+        m4.makeTranslation(spots[i], spots[i + 1], spots[i + 2]);
+        cloudMesh.setMatrixAt(i / 3, m4);
+      }
+      cloudMesh.instanceMatrix.needsUpdate = true;
+      scene.add(cloudMesh);
+    })();
+
+    /* ================= DATA STRUCTURE: SpatialHashGrid =================
+       Uniform-grid hash (cell ~4u). Rebuilt each frame for enemies; used for
+       enemy<->enemy separation and bullet->enemy lookups instead of O(n*m). */
+    function SpatialHashGrid(cellSize) {
+      this.cs = cellSize;
+      this.buckets = new Map(); // key -> array of objects (arrays persist, just reset)
+      this._res = [];           // reusable query result, no per-frame allocation
+    }
+    SpatialHashGrid.prototype.clear = function () {
+      this.buckets.forEach(function (arr) { arr.length = 0; });
+    };
+    SpatialHashGrid.prototype.insert = function (obj, x, z) {
+      var k = (Math.floor(x / this.cs) + 512) * 1024 + (Math.floor(z / this.cs) + 512);
+      var arr = this.buckets.get(k);
+      if (!arr) { arr = []; this.buckets.set(k, arr); }
+      arr.push(obj);
+    };
+    SpatialHashGrid.prototype.queryNear = function (x, z, r) {
+      var res = this._res;
+      res.length = 0;
+      var c0x = Math.floor((x - r) / this.cs), c1x = Math.floor((x + r) / this.cs);
+      var c0z = Math.floor((z - r) / this.cs), c1z = Math.floor((z + r) / this.cs);
+      for (var cx = c0x; cx <= c1x; cx++) {
+        for (var cz = c0z; cz <= c1z; cz++) {
+          var arr = this.buckets.get((cx + 512) * 1024 + (cz + 512));
+          if (!arr) continue;
+          for (var i = 0; i < arr.length; i++) res.push(arr[i]);
+        }
+      }
+      return res;
+    };
+    var grid = new SpatialHashGrid(4);
+
+    /* ================= NEURAL NETWORK (tiny MLP, 5-6-2, tanh) =================
+       inputs:  [distNorm, sin(relAng), cos(relAng), hpNorm, playerFiring]
+       outputs: [advance, strafe] — steering drives, per-enemy mutated weights. */
+    function NeuralNet(sizes) {
+      this.sizes = sizes;
+      this.w = []; this.b = [];
+      for (var l = 0; l < sizes.length - 1; l++) {
+        this.w.push(new Float32Array(sizes[l] * sizes[l + 1]));
+        this.b.push(new Float32Array(sizes[l + 1]));
+      }
+      var mx = 0;
+      for (var s = 0; s < sizes.length; s++) if (sizes[s] > mx) mx = sizes[s];
+      this._a = new Float32Array(mx); // ping-pong activation buffers (no alloc per call)
+      this._b = new Float32Array(mx);
+    }
+    NeuralNet.prototype.forward = function (inp) {
+      var a = this._a, o = this._b, i, j, l, tmp;
+      for (i = 0; i < this.sizes[0]; i++) a[i] = inp[i];
+      var nIn = this.sizes[0];
+      for (l = 0; l < this.w.length; l++) {
+        var nOut = this.sizes[l + 1], W = this.w[l], BB = this.b[l];
+        for (j = 0; j < nOut; j++) {
+          var s = BB[j];
+          for (i = 0; i < nIn; i++) s += W[j * nIn + i] * a[i];
+          o[j] = Math.tanh(s);
+        }
+        tmp = a; a = o; o = tmp;
+        nIn = nOut;
+      }
+      return a; // final activations live here after the last swap
+    };
+    /* copy weights from a source net + gaussian noise — every zombie thinks a bit differently */
+    NeuralNet.prototype.mutateFrom = function (src, sigma) {
+      for (var l = 0; l < this.w.length; l++) {
+        var i;
+        for (i = 0; i < this.w[l].length; i++) this.w[l][i] = src.w[l][i] + gauss() * sigma;
+        for (i = 0; i < this.b[l].length; i++) this.b[l][i] = src.b[l][i] + gauss() * sigma;
+      }
+    };
+    function gauss() { // cheap approximate gaussian (sum of uniforms)
+      return (Math.random() + Math.random() + Math.random() - 1.5) * 1.2;
+    }
+
+    /* hand-initialized base brain:
+       far -> advance strong; near -> keep advancing but strafe more;
+       low hp -> more zigzag; player firing -> more strafing. */
+    var brainBase = new NeuralNet([5, 6, 2]);
+    (function initBaseBrain() {
+      var w0 = brainBase.w[0], b0 = brainBase.b[0];
+      function row(r, d, sn, cs, hp, fr, bias) {
+        w0[r * 5] = d; w0[r * 5 + 1] = sn; w0[r * 5 + 2] = cs; w0[r * 5 + 3] = hp; w0[r * 5 + 4] = fr;
+        b0[r] = bias;
+      }
+      row(0,  2.2, 0,   0,   0,    0,   -.4);  // h0: "target is far"
+      row(1, -3.0, 0,   0,   0,    0,   1.4);  // h1: "target is close"
+      row(2,  0,   0,   0,  -2.4,  0,   1.1);  // h2: "I'm hurt"
+      row(3,  0,   0,   0,   0,    2.0, -.9);  // h3: "player is firing"
+      row(4,  0,   1.3, 0,   0,    0,   0);    // h4: flank bias from view angle
+      row(5,  0,   0,   .6,  0,    0,   .7);   // h5: mostly-on baseline drive
+      var w1 = brainBase.w[1], b1 = brainBase.b[1];
+      /* advance output */
+      w1[0] = 1.1; w1[1] = .35; w1[2] = -.15; w1[3] = -.1; w1[4] = 0; w1[5] = .9; b1[0] = .25;
+      /* strafe output — bias re-centers it: with h1/h2/h3 all "off" (-1) strafe sits near 0,
+         and ramps up as the enemy closes in, gets hurt, or the player opens fire */
+      w1[6] = 0; w1[7] = .9; w1[8] = .8; w1[9] = .7; w1[10] = .5; w1[11] = 0; b1[1] = 2.4;
+    })();
+    var _nnIn = new Float32Array(5); // shared input scratch
+
+    /* ================= PLAYER (first-person: camera is the player) ================= */
+    var blueMat = new THREE.MeshLambertMaterial({ color: 0x106cff });
+    var paperMat = new THREE.MeshLambertMaterial({ color: 0xfffdf8 });
+
+    var player = { x: 0, z: 0 };
+    var yaw = 0, pitch = 0;
+    var EYE = 1.7, PITCH_MAX = 70 * Math.PI / 180, SENS = .0023;
+    var bobT = 0, camBob = 0, camBreath = 0;
+    var camY = blockHeightAt(0, 0) + EYE; // smoothed eye height so block steps feel okay
+    /* SPACE JUMP: while airborne the eye height integrates physically (vel/gravity)
+       instead of the smooth step-lerp; landing resumes the lerp + a small dip */
+    var velY = 0, airborne = false, landT = 0;
+
+    function clampPitch() {
+      if (!Number.isFinite(pitch)) pitch = 0;
+      if (!Number.isFinite(yaw)) yaw = 0;
+      if (pitch > PITCH_MAX) pitch = PITCH_MAX;
+      if (pitch < -PITCH_MAX) pitch = -PITCH_MAX;
+      yaw = wrapYaw(yaw);
+    }
+    /* hard guards: every angle wraps to [-PI, PI]; every network number must be finite */
+    function wrapYaw(a) {
+      if (!Number.isFinite(a)) return 0;
+      while (a > Math.PI) a -= Math.PI * 2;
+      while (a < -Math.PI) a += Math.PI * 2;
+      return a;
+    }
+    function num(v, fallback) {
+      v = +v;
+      return Number.isFinite(v) ? v : fallback;
+    }
+
+    /* ================= VIEWMODEL (blocky pixel-textured rifle, same animations) ================= */
+    var rifleView, muzzle, muzzleFlash, muzzleLight;
+    var VM_X = .32, VM_Y = -.34, VM_Z = -.7, VM_RY = .05;
+    var recoilT = 0, lagY = 0, lagP = 0, prevYaw = 0, prevPitch = 0;
+
+    (function buildViewmodel() {
+      rifleView = new THREE.Group();
+
+      var receiver = new THREE.Mesh(new THREE.BoxGeometry(.08, .1, .36), ironMat);
+      receiver.position.set(0, 0, -.04);
+      var topRail = new THREE.Mesh(new THREE.BoxGeometry(.05, .028, .3), darkIronMat);
+      topRail.position.set(0, .062, -.06);
+      var handguard = new THREE.Mesh(new THREE.BoxGeometry(.068, .075, .28), plankMat);
+      handguard.position.set(0, -.002, -.36);
+      var barrel = new THREE.Mesh(new THREE.BoxGeometry(.034, .034, .34), ironMat);
+      barrel.position.set(0, .012, -.56);
+      var frontSight = new THREE.Mesh(new THREE.BoxGeometry(.016, .055, .024), ironMat);
+      frontSight.position.set(0, .055, -.66);
+      var rearSight = new THREE.Mesh(new THREE.BoxGeometry(.04, .035, .024), ironMat);
+      rearSight.position.set(0, .085, .06);
+      var mag = new THREE.Mesh(new THREE.BoxGeometry(.055, .17, .09), darkIronMat);
+      mag.rotation.x = .28;
+      mag.position.set(0, -.12, -.04);
+      var stock = new THREE.Mesh(new THREE.BoxGeometry(.065, .11, .27), plankMat);
+      stock.position.set(0, -.025, .23);
+      var grip = new THREE.Mesh(new THREE.BoxGeometry(.05, .12, .065), plankMat);
+      grip.rotation.x = .45;
+      grip.position.set(0, -.1, .09);
+
+      /* ----- mounted optic / scope (sits on the top rail) ----- */
+      var scopeGrp = new THREE.Group();
+      var scopeMatLocal = new THREE.MeshLambertMaterial({ color: 0x16181c });
+      var lensFrontMat = new THREE.MeshBasicMaterial({ color: 0x0a1622 });
+      var lensRearMat = new THREE.MeshBasicMaterial({ color: 0x1f5fd0 });
+      var mountA = new THREE.Mesh(new THREE.BoxGeometry(.03, .035, .03), scopeMatLocal); mountA.position.set(0, .088, .02);
+      var mountB = new THREE.Mesh(new THREE.BoxGeometry(.03, .035, .03), scopeMatLocal); mountB.position.set(0, .088, -.13);
+      var tube = new THREE.Mesh(new THREE.CylinderGeometry(.032, .032, .28, 12), scopeMatLocal);
+      tube.rotation.x = Math.PI / 2; tube.position.set(0, .118, -.055);
+      var bell = new THREE.Mesh(new THREE.CylinderGeometry(.042, .032, .06, 12), scopeMatLocal);
+      bell.rotation.x = Math.PI / 2; bell.position.set(0, .118, -.2);
+      var turret = new THREE.Mesh(new THREE.CylinderGeometry(.018, .018, .03, 10), scopeMatLocal);
+      turret.position.set(0, .15, -.05);
+      var lensFront = new THREE.Mesh(new THREE.CircleGeometry(.036, 14), lensFrontMat);
+      lensFront.rotation.y = Math.PI; lensFront.position.set(0, .118, -.231);
+      var lensRear = new THREE.Mesh(new THREE.CircleGeometry(.03, 14), lensRearMat);
+      lensRear.position.set(0, .118, .085);
+      scopeGrp.add(mountA, mountB, tube, bell, turret, lensFront, lensRear);
+
+      /* arms / hands (pixel tan) */
+      var handF = new THREE.Mesh(new THREE.BoxGeometry(.075, .07, .14), skinTanMat);
+      handF.position.set(0, -.055, -.34);
+      var armF = new THREE.Mesh(new THREE.BoxGeometry(.07, .07, .34), skinTanMat);
+      armF.rotation.set(.5, -.35, 0);
+      armF.position.set(-.07, -.18, -.18);
+      var handR = new THREE.Mesh(new THREE.BoxGeometry(.075, .09, .08), skinTanMat);
+      handR.position.set(0, -.1, .12);
+      var armR = new THREE.Mesh(new THREE.BoxGeometry(.075, .075, .34), skinTanMat);
+      armR.rotation.set(.7, .25, 0);
+      armR.position.set(.05, -.22, .26);
+
+      muzzle = new THREE.Object3D();
+      muzzle.position.set(0, .012, -.72);
+      muzzleFlash = new THREE.Mesh(
+        new THREE.ConeGeometry(.05, .17, 6),
+        new THREE.MeshBasicMaterial({ color: 0xfff2c8 })
+      );
+      muzzleFlash.rotation.x = -Math.PI / 2;
+      muzzleFlash.position.set(0, .012, -.8);
+      muzzleFlash.visible = false;
+      muzzleLight = new THREE.PointLight(0xffd9a0, 0, 6);
+      muzzleLight.position.set(0, .05, -.7);
+
+      rifleView.add(receiver, topRail, handguard, barrel, frontSight, rearSight, mag, stock, grip,
+                    scopeGrp, handF, armF, handR, armR, muzzle, muzzleFlash, muzzleLight);
+      rifleView.position.set(VM_X, VM_Y, VM_Z);
+      rifleView.rotation.y = VM_RY; // slight inward cant, classic FPS framing
+      rifleView.visible = false;
+      camera.add(rifleView);
+    })();
+
+    /* ================= SCOPE / AIM-DOWN-SIGHTS ================= */
+    var SCOPE_FOV = 30;          // tight zoom while scoped
+    var scoped = false;          // looking down the optic right now
+    function setScope(on) {
+      on = !!on && S.mode === "play" && !meDown && !localPaused;
+      if (on === scoped) return;
+      scoped = on;
+      if (scoped) {
+        scopeOv.classList.add("on");
+        document.body.classList.add("scoped");
+        rifleView.visible = false;
+        if (scopeBtn) scopeBtn.classList.add("on");
+        sGunQ();
+      } else {
+        scopeOv.classList.remove("on");
+        document.body.classList.remove("scoped");
+        if (scopeBtn) scopeBtn.classList.remove("on");
+      }
+    }
+
+    /* ================= BULLETS (pooled) ================= */
+    var bulletGeo = new THREE.SphereGeometry(.05, 8, 6);
+    var bulletMat = new THREE.MeshBasicMaterial({ color: 0x2f86ff });
+    var bullets = [];
+    function makeBullet() {
+      var m = new THREE.Mesh(bulletGeo, bulletMat);
+      m.visible = false;
+      scene.add(m);
+      var b = { mesh: m, active: false, vis: false, life: 0, vx: 0, vy: 0, vz: 0 };
+      bullets.push(b);
+      return b;
+    }
+    for (var bi = 0; bi < 26; bi++) makeBullet();
+    function getBullet() {
+      for (var i = 0; i < bullets.length; i++) if (!bullets[i].active) return bullets[i];
+      return makeBullet();
+    }
+
+    /* ================= BLOCK DEBRIS (pooled tiny cubes for terrain/tree hits) ================= */
+    var debrisGeo = new THREE.BoxGeometry(.16, .16, .16);
+    var debris = [];
+    (function () {
+      for (var i = 0; i < 36; i++) {
+        var m = new THREE.Mesh(debrisGeo, dirtMat);
+        m.visible = false;
+        scene.add(m);
+        debris.push({ mesh: m, active: false, vx: 0, vy: 0, vz: 0, life: 0 });
+      }
+    })();
+    function spawnDebris(x, y, z, mat, n) {
+      for (var i = 0, c = 0; i < debris.length && c < n; i++) {
+        var d = debris[i];
+        if (d.active) continue;
+        d.active = true;
+        d.life = .5 + Math.random() * .25;
+        d.mesh.material = mat;
+        d.mesh.visible = true;
+        d.mesh.position.set(x, y, z);
+        d.mesh.rotation.set(Math.random() * 3, Math.random() * 3, 0);
+        d.vx = (Math.random() - .5) * 4;
+        d.vy = 2.5 + Math.random() * 2.5;
+        d.vz = (Math.random() - .5) * 4;
+        c++;
+      }
+    }
+
+    /* ================= BULLET HOLES (persistent decals on trees / blocks) =================
+       A ring buffer of textured quads. Each tree/terrain hit stamps one, oriented to face
+       the shot's origin so the "goli ke nishan" reads from where you fired. Oldest recycles. */
+    var holeTex = (function () {
+      var c = document.createElement("canvas");
+      c.width = 32; c.height = 32;
+      var g = c.getContext("2d");
+      g.clearRect(0, 0, 32, 32);
+      /* scorched ring */
+      var grd = g.createRadialGradient(16, 16, 1, 16, 16, 15);
+      grd.addColorStop(0, "rgba(8,8,8,.95)");
+      grd.addColorStop(.45, "rgba(20,16,12,.85)");
+      grd.addColorStop(.75, "rgba(60,44,28,.45)");
+      grd.addColorStop(1, "rgba(60,44,28,0)");
+      g.fillStyle = grd;
+      g.beginPath(); g.arc(16, 16, 15, 0, Math.PI * 2); g.fill();
+      /* dark splintered core */
+      g.fillStyle = "#0a0807";
+      g.beginPath(); g.arc(16, 16, 5.5, 0, Math.PI * 2); g.fill();
+      /* a few cracks radiating out */
+      g.strokeStyle = "rgba(10,8,6,.8)";
+      g.lineWidth = 1.4;
+      for (var k = 0; k < 6; k++) {
+        var ang = k * 1.05 + .3;
+        g.beginPath();
+        g.moveTo(16, 16);
+        g.lineTo(16 + Math.cos(ang) * (7 + (k % 3) * 3), 16 + Math.sin(ang) * (7 + (k % 3) * 3));
+        g.stroke();
+      }
+      var t = new THREE.CanvasTexture(c);
+      return t;
+    })();
+    var holeMat = new THREE.MeshBasicMaterial({
+      map: holeTex, transparent: true, depthWrite: false,
+      polygonOffset: true, polygonOffsetFactor: -4, polygonOffsetUnits: -4
+    });
+    var holeGeo = new THREE.PlaneGeometry(.4, .4);
+    var holes = [];
+    var holeIdx = 0;
+    (function () {
+      for (var i = 0; i < 64; i++) {
+        var m = new THREE.Mesh(holeGeo, holeMat);
+        m.visible = false;
+        scene.add(m);
+        holes.push(m);
+      }
+    })();
+    /* place a hole at (x,y,z) facing toward (fromX,fromZ) — the shooter side of the surface */
+    function spawnBulletHole(x, y, z, fromX, fromZ, scl) {
+      var m = holes[holeIdx];
+      holeIdx = (holeIdx + 1) % holes.length;
+      var nx = fromX - x, nz = fromZ - z;
+      var len = Math.sqrt(nx * nx + nz * nz) || 1;
+      nx /= len; nz /= len;
+      /* nudge a touch toward the shooter so it sits on the bark, not inside it */
+      m.position.set(x + nx * .06, y, z + nz * .06);
+      m.rotation.set(0, Math.atan2(nx, nz), (Math.random() - .5) * 1.6);
+      var s = scl || 1;
+      m.scale.set(s, s, s);
+      m.visible = true;
+    }
+
+    /* ================= DAMAGE NUMBERS (pooled sprites) ================= */
+    var dmgPool = [];
+    (function () {
+      for (var i = 0; i < 10; i++) {
+        var c = document.createElement("canvas");
+        c.width = 64; c.height = 32;
+        var ctx = c.getContext("2d");
+        var tex = new THREE.CanvasTexture(c);
+        var mat = new THREE.SpriteMaterial({ map: tex, transparent: true, depthWrite: false });
+        var spr = new THREE.Sprite(mat);
+        spr.scale.set(1.0, .5, 1);
+        spr.visible = false;
+        scene.add(spr);
+        dmgPool.push({ sprite: spr, mat: mat, ctx: ctx, tex: tex, active: false, life: 0 });
+      }
+    })();
+    function spawnDmg(x, y, z, val) {
+      var d = null;
+      for (var i = 0; i < dmgPool.length; i++) if (!dmgPool[i].active) { d = dmgPool[i]; break; }
+      if (!d) return;
+      var g = d.ctx;
+      g.clearRect(0, 0, 64, 32);
+      g.font = "800 22px Inter, sans-serif";
+      g.textAlign = "center"; g.textBaseline = "middle";
+      g.lineWidth = 5; g.strokeStyle = "#171717";
+      g.strokeText(String(val), 32, 16);
+      g.fillStyle = "#fffdf8";
+      g.fillText(String(val), 32, 16);
+      d.tex.needsUpdate = true;
+      d.active = true;
+      d.life = .65;
+      d.mat.opacity = 1;
+      d.sprite.position.set(x + (Math.random() - .5) * .4, y, z + (Math.random() - .5) * .4);
+      d.sprite.visible = true;
+    }
+
+    /* ================= ENEMIES (pooled Minecraft zombies) ================= */
+    /* face: skin speckle base + drawn brow / eyes-with-pupils / nose / mouth.
+       human=true gives a calm soldier face; otherwise a sunken, snarling undead face. */
+    function faceTexture(skinCols, human) {
+      return pixelTexture(skinCols, function (g) {
+        /* brow ridge — heavier on the undead */
+        g.fillStyle = human ? "rgba(0,0,0,.20)" : "rgba(0,0,0,.4)";
+        g.fillRect(1, 2, 2, 1); g.fillRect(5, 2, 2, 1);
+        /* eye whites */
+        g.fillStyle = human ? "#f3efe6" : "#cdc6ad";
+        g.fillRect(1, 3, 2, 1); g.fillRect(5, 3, 2, 1);
+        /* pupils */
+        g.fillStyle = human ? "#37291b" : "#0d0d0d";
+        g.fillRect(2, 3, 1, 1); g.fillRect(5, 3, 1, 1);
+        /* nose shadow down the centre */
+        g.fillStyle = "rgba(0,0,0,.16)";
+        g.fillRect(4, 4, 1, 1);
+        /* mouth */
+        g.fillStyle = human ? "#794a39" : "#231515";
+        g.fillRect(2, 6, 4, 1);
+        if (!human) {
+          /* undead: a couple of bared teeth + a dark gash on one cheek */
+          g.fillStyle = "#d3ccb6"; g.fillRect(3, 6, 1, 1); g.fillRect(5, 6, 1, 1);
+          g.fillStyle = "rgba(96,18,18,.5)"; g.fillRect(5, 5, 2, 2);
+        }
+      });
+    }
+    /* one shared set of materials per variant for ALL enemies (or soldiers when human) */
+    function variantMats(skinCols, shirtCols, legCols, human) {
+      var sk = new THREE.MeshLambertMaterial({ map: pixelTexture(skinCols) });
+      var fc = new THREE.MeshLambertMaterial({ map: faceTexture(skinCols, human) });
+      return {
+        head: [sk, sk, sk, sk, fc, sk], // face on +z (the side that looks at the player)
+        body: new THREE.MeshLambertMaterial({ map: pixelTexture(shirtCols) }),
+        arm: sk,
+        leg: new THREE.MeshLambertMaterial({ map: pixelTexture(legCols) })
+      };
+    }
+    var VAR = {
+      /* normal zombie: green */
+      normal: { mats: variantMats(["#56a14e", "#4c9344", "#62af58", "#478b40"], ["#2e8577", "#27776a", "#359184"], ["#5a4a80", "#4f4172", "#665390"]), spd: 1, hp: 1, scl: 1 },
+      /* fast husk: tan, quicker, squishier */
+      husk: { mats: variantMats(["#c4a86a", "#b89c5e", "#cfb478"], ["#9b8350", "#8d7747", "#a88f58"], ["#7c6a42", "#70603b", "#857347"]), spd: 1.3, hp: .8, scl: .95 },
+      /* brute: gray, big, slow, tanky */
+      brute: { mats: variantMats(["#8b8f93", "#7e8286", "#999da1"], ["#5a5e63", "#50545a", "#64686d"], ["#3c4045", "#34383c", "#44484d"]), spd: .6, hp: 2.5, scl: 1.5 }
+    };
+    var flashMat = new THREE.MeshLambertMaterial({ color: 0xd84040, emissive: 0x991414 });
+
+    var hpBackMat = new THREE.MeshBasicMaterial({ color: 0x222220 });
+    var hpFrontMat = new THREE.MeshBasicMaterial({ color: 0x35c25e });
+    var hpBackGeo = new THREE.PlaneGeometry(.78, .1);
+    var hpFrontGeo = new THREE.PlaneGeometry(.7, .065);
+    hpFrontGeo.translate(.35, 0, 0);
+
+    /* shared blocky geometry: head cube + cuboid torso/arms/legs, limbs pivot at top */
+    var headGeo = new THREE.BoxGeometry(.55, .55, .55);
+    var bodyGeo = new THREE.BoxGeometry(.55, .8, .3);
+    var armGeo = new THREE.BoxGeometry(.22, .75, .22);
+    armGeo.translate(0, -.32, 0);
+    var legGeo = new THREE.BoxGeometry(.22, .75, .22);
+    legGeo.translate(0, -.375, 0);
+
+    /* ----- detail bits that make the figures read as people: hands, shoes, neck, ears, hair -----
+       hands/feet are children of the limbs so they swing with the walk; neck/ears/hair hang off
+       the body/head. Skin-toned parts (hands, neck, ears) recolour per variant + flash on hit. */
+    var shoeMat = new THREE.MeshLambertMaterial({ map: pixelTexture(["#2a2a2e", "#222226", "#34343a"]) });
+    var hairMat = new THREE.MeshLambertMaterial({ map: pixelTexture(["#2b2520", "#221d18", "#332b23"]) });
+    var handGeo = new THREE.BoxGeometry(.245, .2, .245); handGeo.translate(0, -.72, 0);
+    var footGeo = new THREE.BoxGeometry(.24, .16, .38); footGeo.translate(0, -.74, .07);
+    var neckGeo = new THREE.BoxGeometry(.26, .2, .26);
+    var earGeo = new THREE.BoxGeometry(.07, .17, .14);
+    var hairTopGeo = new THREE.BoxGeometry(.6, .16, .6); hairTopGeo.translate(0, .29, 0);
+    var hairBackGeo = new THREE.BoxGeometry(.6, .42, .14); hairBackGeo.translate(0, .03, -.235);
+
+    /* attaches the detail meshes; returns {hands, skinParts} so callers can recolour/flash them */
+    function addHumanoidDetails(g, head, armL, armR, legL, legR, skinMat, opts) {
+      opts = opts || {};
+      var hL = new THREE.Mesh(handGeo, skinMat); armL.add(hL);
+      var hR = new THREE.Mesh(handGeo, skinMat); armR.add(hR);
+      legL.add(new THREE.Mesh(footGeo, shoeMat));
+      legR.add(new THREE.Mesh(footGeo, shoeMat));
+      var neck = new THREE.Mesh(neckGeo, skinMat); neck.position.y = 1.5; g.add(neck);
+      var earL = new THREE.Mesh(earGeo, skinMat); earL.position.set(-.30, 0, 0); head.add(earL);
+      var earR = new THREE.Mesh(earGeo, skinMat); earR.position.set(.30, 0, 0); head.add(earR);
+      if (opts.hair) {
+        head.add(new THREE.Mesh(hairTopGeo, opts.hairMat || hairMat));
+        head.add(new THREE.Mesh(hairBackGeo, opts.hairMat || hairMat));
+      }
+      return { hands: [hL, hR], skinParts: [hL, hR, neck, earL, earR] };
+    }
+
+    var enemies = [];
+
+    function makeEnemy() {
+      var g = new THREE.Group();
+      var v = VAR.normal;
+
+      var lL = new THREE.Mesh(legGeo, v.mats.leg); lL.position.set(-.145, .75, 0);
+      var lR = new THREE.Mesh(legGeo, v.mats.leg); lR.position.set(.145, .75, 0);
+      var aL = new THREE.Mesh(armGeo, v.mats.arm); aL.position.set(-.385, 1.48, 0);
+      var aR = new THREE.Mesh(armGeo, v.mats.arm); aR.position.set(.385, 1.48, 0);
+      var torso = new THREE.Mesh(bodyGeo, v.mats.body);
+      torso.position.y = 1.15;
+      var head = new THREE.Mesh(headGeo, v.mats.head);
+      head.position.y = 1.83;
+      head.rotation.x = .16; // undead hunch — head tipped forward
+
+      /* hands / shoes / neck / ears / matted hair */
+      var det = addHumanoidDetails(g, head, aL, aR, lL, lR, v.mats.arm, { hair: true });
+
+      var hpG = new THREE.Group();
+      var back = new THREE.Mesh(hpBackGeo, hpBackMat);
+      var front = new THREE.Mesh(hpFrontGeo, hpFrontMat);
+      front.position.set(-.35, 0, .005);
+      hpG.add(back, front);
+      hpG.position.y = 2.4;
+
+      g.add(lL, lR, aL, aR, torso, head, hpG);
+      g.visible = false;
+      scene.add(g);
+
+      var rec = {
+        g: g, head: head, torso: torso, legL: lL, legR: lR, armL: aL, armR: aR,
+        hands: det.hands, skinParts: det.skinParts,
+        hpG: hpG, hpFront: front,
+        mats: v.mats, flashT: 0,
+        active: false, dead: false, dieT: 0,
+        hp: 100, maxhp: 100, speed: 3.2,
+        atkT: 0, atkAnim: 0, phase: Math.random() * 7, scl: 1,
+        brain: new NeuralNet([5, 6, 2]), // per-enemy mutated steering brain
+        brainT: 0, adv: .8, str: 0,
+        /* multiplayer sync fields */
+        id: 0, vi: 0, tx: 0, tz: 0, prevNS: 0, seen: 0
+      };
+      enemies.push(rec);
+      return rec;
+    }
+    for (var ei = 0; ei < 12; ei++) makeEnemy();
+
+    function applyMats(e) {
+      e.head.material = e.mats.head;
+      e.torso.material = e.mats.body;
+      e.armL.material = e.mats.arm;
+      e.armR.material = e.mats.arm;
+      e.legL.material = e.mats.leg;
+      e.legR.material = e.mats.leg;
+      if (e.skinParts) for (var i = 0; i < e.skinParts.length; i++) e.skinParts[i].material = e.mats.arm;
+    }
+    function applyFlash(e) {
+      e.head.material = flashMat;
+      e.torso.material = flashMat;
+      e.armL.material = flashMat;
+      e.armR.material = flashMat;
+      e.legL.material = flashMat;
+      e.legR.material = flashMat;
+      if (e.skinParts) for (var i = 0; i < e.skinParts.length; i++) e.skinParts[i].material = flashMat;
+    }
+
+    function spawnEnemy(wave) {
+      var e = null;
+      for (var i = 0; i < enemies.length; i++) if (!enemies[i].active) { e = enemies[i]; break; }
+      if (!e) e = makeEnemy();
+      /* spawn in a ring around the player so the bigger arena never strands the horde */
+      var a = Math.random() * Math.PI * 2;
+      var r = 30 + Math.random() * 9;
+      var x = player.x + Math.cos(a) * r, z = player.z + Math.sin(a) * r;
+      var lim = WORLD_HALF - 4;
+      if (x > lim) x = lim; else if (x < -lim) x = -lim;
+      if (z > lim) z = lim; else if (z < -lim) z = -lim;
+
+      /* wave-weighted variant pick: husks early, brutes from wave 3 */
+      var pB = wave >= 3 ? Math.min(.28, .06 + (wave - 3) * .05) : 0;
+      var pH = Math.min(.35, .05 + wave * .06);
+      var roll = Math.random();
+      var v = roll < pB ? VAR.brute : (roll < pB + pH ? VAR.husk : VAR.normal);
+      e.mats = v.mats;
+      applyMats(e);
+      e.vi = v === VAR.brute ? 2 : (v === VAR.husk ? 1 : 0);
+      e.id = nextEid++;
+      e.tx = x; e.tz = z;
+      e.prevNS = 0;
+      MP.eidMap[e.id] = e;
+
+      e.scl = v.scl * (.95 + Math.random() * .15);
+      e.g.scale.setScalar(e.scl);
+      e.flashT = 0;
+      e.g.position.set(x, blockHeightAt(x, z), z);
+      e.g.rotation.set(0, 0, 0);
+      e.armL.rotation.x = 0; e.armR.rotation.x = 0;
+      e.legL.rotation.x = 0; e.legR.rotation.x = 0;
+      e.maxhp = (90 + wave * 10) * v.hp;
+      e.hp = e.maxhp;
+      e.speed = (3.0 + wave * .14) * v.spd;
+      e.active = true;
+      e.dead = false;
+      e.dieT = 0;
+      e.atkT = .6;
+      e.atkAnim = 0;
+      e.hpG.visible = true;
+      e.hpFront.scale.x = 1;
+      e.g.visible = true;
+
+      /* fresh mutated brain: base weights + gaussian noise (no allocation, reuses arrays) */
+      e.brain.mutateFrom(brainBase, .25);
+      if (Math.random() < .5) { // half the pack prefers the other strafe direction
+        var w1 = e.brain.w[1], b1 = e.brain.b[1];
+        for (var k = 6; k < 12; k++) w1[k] = -w1[k];
+        b1[1] = -b1[1];
+      }
+      e.brainT = Math.random() * .25; // staggered think ticks
+      e.adv = .8; e.str = 0;
+      S.alive++;
+    }
+
+    /* ================= MEDKIT ================= */
+    var medkit = new THREE.Group();
+    (function () {
+      var box = new THREE.Mesh(new THREE.BoxGeometry(.62, .42, .62), paperMat);
+      var crossA = new THREE.Mesh(new THREE.BoxGeometry(.4, .1, .14), blueMat);
+      var crossB = new THREE.Mesh(new THREE.BoxGeometry(.14, .1, .4), blueMat);
+      crossA.position.y = .2; crossB.position.y = .2;
+      medkit.add(box, crossA, crossB);
+      medkit.visible = false;
+      scene.add(medkit);
+    })();
+    var medkitActive = false, medkitBaseY = 0;
+
+    function dropMedkit() {
+      var x = (Math.random() - .5) * 70, z = (Math.random() - .5) * 70;
+      medkitBaseY = blockHeightAt(x, z) + .32;
+      medkit.position.set(x, medkitBaseY, z);
+      medkit.visible = true;
+      medkitActive = true;
+    }
+
+    /* ================= HP BOXES (pooled mini-medkit drops on kills) ================= */
+    var hpBoxes = [];
+    (function () {
+      for (var i = 0; i < 8; i++) {
+        var g = new THREE.Group();
+        var bx = new THREE.Mesh(new THREE.BoxGeometry(.42, .3, .42), paperMat);
+        var ca = new THREE.Mesh(new THREE.BoxGeometry(.3, .08, .11), blueMat);
+        var cb = new THREE.Mesh(new THREE.BoxGeometry(.11, .08, .3), blueMat);
+        ca.position.y = .16; cb.position.y = .16;
+        g.add(bx, ca, cb);
+        g.visible = false;
+        scene.add(g);
+        hpBoxes.push({ g: g, active: false, id: 0, baseY: 0, life: 0, seen: 0, ambient: false });
+      }
+    })();
+    function spawnHpBox(x, z, id) {
+      for (var i = 0; i < hpBoxes.length; i++) {
+        var b = hpBoxes[i];
+        if (b.active) continue;
+        b.active = true;
+        b.id = id;
+        b.life = 25;
+        b.seen = 1;
+        b.ambient = false;
+        b.baseY = blockHeightAt(x, z) + .2;
+        b.g.position.set(x, b.baseY, z);
+        b.g.rotation.y = Math.random() * 3;
+        b.g.visible = true;
+        return b;
+      }
+      return null;
+    }
+    function despawnHpBox(b) { b.active = false; b.g.visible = false; }
+    function findHpBox(id) {
+      for (var i = 0; i < hpBoxes.length; i++) if (hpBoxes[i].active && hpBoxes[i].id === id) return hpBoxes[i];
+      return null;
+    }
+    function healFlash() {
+      healFx.animate([{ opacity: .8 }, { opacity: 0 }], { duration: 380, easing: "ease-out" });
+    }
+    function healLocalFromBox(b) {
+      despawnHpBox(b);
+      S.hp = Math.min(100, S.hp + 20);
+      updateHP();
+      sChime();
+      healFlash();
+      if (MP.on && MP.isHost) mpBroadcast({ t: "box-", id: b.id, pid: 0 });
+    }
+    function maybeDropHpBox(x, z) {
+      if (Math.random() >= .3) return; // 30% drop chance, host/solo decides
+      var b = spawnHpBox(x, z, nextBoxId++);
+      if (b && MP.on && MP.isHost) mpBroadcast({ t: "box+", id: b.id, x: r2(x), z: r2(z) });
+    }
+
+    /* ----- ambient hp boxes: up to 4 alive, one every ~12s, despawn after 40s.
+       Host/solo spawn + validate; guests render from box+/box-/snapshots. ----- */
+    var ambientT = 12;
+    function countAmbientBoxes() {
+      var n = 0;
+      for (var i = 0; i < hpBoxes.length; i++) if (hpBoxes[i].active && hpBoxes[i].ambient) n++;
+      return n;
+    }
+    function spawnAmbientBox() {
+      var x = 0, z = 0, ok = false;
+      for (var tries = 0; tries < 14 && !ok; tries++) {
+        x = (Math.random() - .5) * 86; // central play area
+        z = (Math.random() - .5) * 86;
+        ok = true;
+        for (var j = 0; j < treeList.length; j++) {
+          var dx = x - treeList[j].x, dz = z - treeList[j].z;
+          if (dx * dx + dz * dz < 4) { ok = false; break; } // keep clear of trunks
+        }
+      }
+      if (!ok) return;
+      var b = spawnHpBox(x, z, nextBoxId++);
+      if (!b) return;
+      b.ambient = true;
+      b.life = 40;
+      if (MP.on && MP.isHost) mpBroadcast({ t: "box+", id: b.id, x: r2(x), z: r2(z) });
+    }
+    function updateAmbientBoxes(dt) {
+      if (isGuest()) return; // host/solo authority only
+      ambientT -= dt;
+      if (ambientT <= 0) {
+        ambientT = 11 + Math.random() * 2.5;
+        if (countAmbientBoxes() < 4) spawnAmbientBox();
+      }
+    }
+    function updateHpBoxes(dt, t) {
+      var authority = !(MP.on && !MP.isHost); // guests only render; host/solo own the logic
+      for (var i = 0; i < hpBoxes.length; i++) {
+        var b = hpBoxes[i];
+        if (!b.active) continue;
+        b.g.rotation.y += dt * 1.4;
+        b.g.position.y = b.baseY + Math.sin(t * 2.6 + b.id) * .07 + .05;
+        if (!authority) continue;
+        b.life -= dt;
+        if (b.life <= 0) {
+          despawnHpBox(b);
+          if (MP.on && MP.isHost) mpBroadcast({ t: "box-", id: b.id, pid: -1 });
+          continue;
+        }
+        if (!meDown) {
+          var dx = player.x - b.g.position.x, dz = player.z - b.g.position.z;
+          if (dx * dx + dz * dz < 1.44) { healLocalFromBox(b); continue; }
+        }
+        if (MP.on && MP.isHost) {
+          for (var j = 0; j < MP.plist.length; j++) {
+            var p = MP.plist[j];
+            if (p.down) continue;
+            var rdx = p.tx - b.g.position.x, rdz = p.tz - b.g.position.z;
+            if (rdx * rdx + rdz * rdz < 1.44) {
+              p.hp = Math.min(100, p.hp + 20);
+              despawnHpBox(b);
+              mpBroadcast({ t: "box-", id: b.id, pid: p.pid });
+              break;
+            }
+          }
+        }
+      }
+    }
+
+    /* ================= REMOTE PLAYERS (blocky soldiers, pooled) ================= */
+    var soldierMats = variantMats(
+      ["#d9b38c", "#cfa67e", "#e0bd97"],
+      ["#1c1c1e", "#161618", "#232325"],
+      ["#26262a", "#1e1e22", "#2c2c30"],
+      true // calm human face
+    );
+    var hpBlueMat = new THREE.MeshBasicMaterial({ color: 0x106cff });
+    var freeSoldiers = [];
+    function makeSoldier() {
+      if (freeSoldiers.length) {
+        var re = freeSoldiers.pop();
+        re.g.visible = false;
+        return re;
+      }
+      var g = new THREE.Group();
+      var lL = new THREE.Mesh(legGeo, soldierMats.leg); lL.position.set(-.145, .75, 0);
+      var lR = new THREE.Mesh(legGeo, soldierMats.leg); lR.position.set(.145, .75, 0);
+      var aL = new THREE.Mesh(armGeo, soldierMats.arm); aL.position.set(-.385, 1.48, 0);
+      var aR = new THREE.Mesh(armGeo, soldierMats.arm); aR.position.set(.385, 1.48, 0);
+      var torso = new THREE.Mesh(bodyGeo, soldierMats.body); torso.position.y = 1.15;
+      var vest = new THREE.Mesh(new THREE.BoxGeometry(.6, .48, .36), blueMat); vest.position.y = 1.22;
+      var head = new THREE.Mesh(headGeo, soldierMats.head); head.position.y = 1.83;
+      var helmet = new THREE.Mesh(new THREE.BoxGeometry(.62, .2, .62), ironMat); helmet.position.y = 2.08;
+      var brim = new THREE.Mesh(new THREE.BoxGeometry(.62, .06, .16), ironMat); brim.position.set(0, 1.99, .34); // helmet brim
+      /* hands / shoes / neck / ears (no hair — helmet covers it) */
+      addHumanoidDetails(g, head, aL, aR, lL, lR, soldierMats.arm, { hair: false });
+      var rifle = new THREE.Mesh(new THREE.BoxGeometry(.09, .12, .8), darkIronMat);
+      rifle.position.set(.14, 1.32, .45); // model front (face side) is +z
+      var rFlash = new THREE.Mesh(
+        new THREE.ConeGeometry(.06, .2, 6),
+        new THREE.MeshBasicMaterial({ color: 0xfff2c8 })
+      );
+      rFlash.rotation.x = Math.PI / 2;
+      rFlash.position.set(.14, 1.32, .92);
+      rFlash.visible = false;
+      var hpG = new THREE.Group();
+      var back = new THREE.Mesh(hpBackGeo, hpBackMat);
+      var front = new THREE.Mesh(hpFrontGeo, hpBlueMat);
+      front.position.set(-.35, 0, .005);
+      hpG.add(back, front);
+      hpG.position.y = 2.5;
+      g.add(lL, lR, aL, aR, torso, vest, head, helmet, brim, rifle, rFlash, hpG);
+      g.visible = false;
+      scene.add(g);
+      return { g: g, legL: lL, legR: lR, armL: aL, armR: aR, hpG: hpG, hpFront: front, flash: rFlash };
+    }
+
+    /* ================= STATE ================= */
+    var S = {
+      mode: "menu",            // menu | count | play | pause | over
+      score: 0, kills: 0, shots: 0, hits: 0,
+      hp: 100, ammo: 30, reloading: false, reloadT: 0,
+      wave: 1, alive: 0, inBreak: false, breakT: 0,
+      playT: 0, fireT: 0, firing: false,
+      countT: 0, lastCount: 0,
+      flashT: 0, hitT: 0, hitShown: false,
+      shake: 0, menuT: 0,
+      best: parseInt(localStorage.getItem("psDropBest") || "0", 10),
+      movingNow: false
+    };
+    hudBest.textContent = S.best;
+
+    /* ================= MULTIPLAYER STATE (PeerJS, lazy — solo never touches it) ================= */
+    var MP = {
+      on: false,        // true while a room match is live
+      isHost: false,
+      started: false,
+      peer: null,
+      conns: [],        // host: open DataConnections (one per guest)
+      hostConn: null,   // guest: single connection to host
+      code: "",
+      myPid: 0,
+      nextPid: 1,
+      players: {},      // pid -> remote player record
+      plist: [],        // same records as an array (no per-frame for-in)
+      eidMap: {},       // enemy id -> enemy rec (host + guest)
+      snapT: 0, sendT: 0, snapStamp: 0, retried: 0
+    };
+    var meDown = false, localPaused = false, mpLobbyCount = 1;
+    var nextEid = 1, nextBoxId = 1;
+
+    /* ----- DUEL (1v1 friend-vs-friend) state ----- */
+    var mpMode = "coop"; // host-selected lobby mode: "coop" | "duel"
+    var DUEL = {
+      on: false,        // true while a duel match is live
+      over: false,      // someone reached 5 kills
+      kills: {},        // pid -> kill count (host authoritative, mirrored on guests)
+      deadT: 0,         // host-only: own respawn countdown
+      protT: 0,         // own spawn-protection time left
+      killerPid: -1     // who downed me last (respawn point keeps its distance)
+    };
+    var DUEL_TARGET = 5;
+    function netSend(conn, obj) {
+      if (!conn || !conn.open) return;
+      try { conn.send(obj); } catch (err) {}
+    }
+    function mpBroadcast(obj) {
+      for (var i = 0; i < MP.conns.length; i++) netSend(MP.conns[i], obj);
+    }
+    function mpRelayExcept(from, obj) {
+      for (var i = 0; i < MP.conns.length; i++) if (MP.conns[i] !== from) netSend(MP.conns[i], obj);
+    }
+    function r2(v) { return Math.round(v * 100) / 100; }
+    function isGuest() { return MP.on && !MP.isHost; }
+
+    var knock = new THREE.Vector3();
+    var keys = { up: false, down: false, left: false, right: false, sprint: false };
+
+    /* temp vectors — no allocations in the loop */
+    var _v = new THREE.Vector3(), _v2 = new THREE.Vector3(), _v3 = new THREE.Vector3();
+    var _dir = new THREE.Vector3();
+    var worldT = 0; // global drifting-cloud clock
+
+    /* ================= POINTER LOCK (with fallback steering) ================= */
+    var plLocked = false, plFallback = false, lockExitAt = 0;
+    var tapShot = false;
+    if (!canvas.requestPointerLock) plFallback = true;
+
+    function updateLockHint() {
+      /* unlocked during play = the look simply tracks raw mouse deltas; the hint
+         stays up inviting a click, and nothing may auto-rotate on its own */
+      var show = S.mode === "play" && !plLocked && !isCoarse && !localPaused;
+      if (show) lockHint.classList.remove("hidden");
+      else lockHint.classList.add("hidden");
+    }
+
+    function tryLock() {
+      if (isCoarse || plLocked || plFallback || !canvas.requestPointerLock) return;
+      try {
+        var p = canvas.requestPointerLock();
+        if (p && p.catch) p.catch(function () { plFallback = true; updateLockHint(); });
+      } catch (err) {
+        plFallback = true;
+        updateLockHint();
+      }
+    }
+    function unlock() {
+      if (plLocked && document.exitPointerLock) {
+        try { document.exitPointerLock(); } catch (err) {}
+      }
+    }
+
+    document.addEventListener("pointerlockchange", function () {
+      plLocked = document.pointerLockElement === canvas;
+      if (!plLocked) {
+        lockExitAt = Date.now();
+        if (S.mode === "play") doPause(); // auto-pause when aim lock drops mid-game
+      }
+      updateLockHint();
+    });
+    document.addEventListener("pointerlockerror", function () {
+      plFallback = true; // denied/unavailable → unlocked delta-look keeps it playable
+      updateLockHint();
+    });
+
+    /* ================= HUD helpers ================= */
+    function updateHUD() {
+      hudScore.textContent = S.score;
+      hudBest.textContent = S.best;
+      hudWave.textContent = S.wave;
+      hudKills.textContent = DUEL.on ? (DUEL.kills[MP.myPid] || 0) : S.kills;
+    }
+    function updateDuelHUD() {
+      if (!DUEL.on) return;
+      var mine = DUEL.kills[MP.myPid] || 0;
+      var best = 0, rivals = 0, k;
+      for (k in DUEL.kills) {
+        if (+k === MP.myPid) continue;
+        if (DUEL.kills[k] > best) best = DUEL.kills[k];
+      }
+      rivals = MP.plist.length;
+      if (rivals > 1) duelChipTxt.textContent = "YOU " + mine + " · BEST RIVAL " + best;
+      else duelChipTxt.textContent = "YOU " + mine + " — " + best + " RIVAL";
+      hudKills.textContent = mine;
+    }
+    function updateHP() {
+      var p = Math.max(0, S.hp);
+      hpFill.style.width = p + "%";
+      hpFill.style.background = p > 55 ? "#106cff" : (p > 28 ? "#f0a225" : "#e23d3d");
+    }
+    function updateAmmo() {
+      ammoTxt.textContent = S.ammo + " / 30";
+    }
+    function showBanner(txt) {
+      bannerTxt.textContent = txt;
+      banner.animate(
+        [{ opacity: 0, transform: "translate(-50%,-46%) scale(.92)" },
+         { opacity: 1, transform: "translate(-50%,-50%) scale(1)", offset: .18 },
+         { opacity: 1, transform: "translate(-50%,-50%) scale(1)", offset: .78 },
+         { opacity: 0, transform: "translate(-50%,-54%) scale(1.02)" }],
+        { duration: 1500, easing: "ease-out" }
+      );
+    }
+    function flashVignette() {
+      vignette.animate([{ opacity: .85 }, { opacity: 0 }], { duration: 340, easing: "ease-out" });
+    }
+
+    /* ================= GAME FLOW ================= */
+    function resetGame() {
+      setScope(false);
+      for (var hk = 0; hk < holes.length; hk++) holes[hk].visible = false; // clear old bullet marks
+      S.score = 0; S.kills = 0; S.shots = 0; S.hits = 0;
+      S.hp = 100; S.ammo = 30; S.reloading = false; S.reloadT = 0;
+      S.wave = 1; S.alive = 0; S.inBreak = false; S.breakT = 0;
+      S.playT = 0; S.fireT = 0; S.firing = false;
+      S.flashT = 0; S.hitT = 0; S.shake = 0;
+      knock.set(0, 0, 0);
+      var i;
+      for (i = 0; i < enemies.length; i++) {
+        enemies[i].active = false;
+        enemies[i].dead = false;
+        enemies[i].flashT = 0;
+        applyMats(enemies[i]);
+        enemies[i].g.visible = false;
+      }
+      for (i = 0; i < bullets.length; i++) {
+        bullets[i].active = false;
+        bullets[i].mesh.visible = false;
+      }
+      for (i = 0; i < debris.length; i++) {
+        debris[i].active = false;
+        debris[i].mesh.visible = false;
+      }
+      for (i = 0; i < dmgPool.length; i++) {
+        dmgPool[i].active = false;
+        dmgPool[i].sprite.visible = false;
+      }
+      muzzleFlash.visible = false;
+      muzzleLight.intensity = 0;
+      medkit.visible = false; medkitActive = false;
+      for (i = 0; i < hpBoxes.length; i++) despawnHpBox(hpBoxes[i]);
+      ambientT = 12; // ambient hp boxes: first one ~12s in
+
+      /* duel-round reset (mode flag DUEL.on is decided before reset by the start flow) */
+      DUEL.over = false;
+      DUEL.kills = {};
+      DUEL.deadT = 0;
+      DUEL.protT = 0;
+      DUEL.killerPid = -1;
+      elimChip.classList.add("hidden");
+      overTag.textContent = "Eliminated";
+      statsGrid.classList.remove("hidden");
+      bestLine.classList.remove("hidden");
+      retryBtn.innerHTML = 'Drop Again <span class="dot"></span>';
+      guestWait.textContent = "Waiting for host to restart…";
+      if (DUEL.on) {
+        waveChip.classList.add("hidden");
+        duelChip.classList.remove("hidden");
+        updateDuelHUD();
+      } else {
+        waveChip.classList.remove("hidden");
+        duelChip.classList.add("hidden");
+      }
+
+      /* multiplayer-round reset (no-ops in solo) */
+      meDown = false;
+      localPaused = false;
+      downChip.classList.add("hidden");
+      mpPauseNote.classList.add("hidden");
+      pauseOv.classList.add("hidden");
+      MP.eidMap = {};
+      MP.snapT = 0; MP.sendT = 0;
+      for (i = 0; i < MP.plist.length; i++) {
+        var rp = MP.plist[i];
+        rp.hp = 100; rp.down = false;
+        rp.x = rp.tx = 0; rp.z = rp.tz = 0;
+        rp.y = rp.ty = blockHeightAt(0, 0) + EYE;
+        rp.yaw = rp.tyaw = 0;
+        rp.moving = false; rp.shooting = false; rp.flashT = 0;
+        rp.prot = 0; rp.respawnT = 0; rp.rx = 0; rp.rz = 0;
+        rp.model.flash.visible = false;
+      }
+
+      /* jump reset */
+      airborne = false; velY = 0; landT = 0;
+      S.movingNow = false;
+
+      /* full FPS reset: position, view, viewmodel */
+      player.x = 0; player.z = 0;
+      yaw = 0; pitch = 0;
+      prevYaw = 0; prevPitch = 0;
+      lagY = 0; lagP = 0; recoilT = 0;
+      bobT = 0; camBob = 0; camBreath = 0;
+      tapShot = false;
+      keys.up = false; keys.down = false; keys.left = false; keys.right = false; keys.sprint = false;
+      camY = blockHeightAt(0, 0) + EYE;
+      camera.position.set(0, camY, 0);
+      camera.rotation.set(0, 0, 0);
+      camera.fov = BASE_FOV;
+      camera.updateProjectionMatrix();
+      rifleView.position.set(VM_X, VM_Y, VM_Z);
+      rifleView.rotation.set(0, VM_RY, 0);
+
+      /* duel: scatter starts around the arena (deterministic per pid), facing center */
+      if (DUEL.on) {
+        var ang0 = (MP.myPid * 2.399963) % (Math.PI * 2);
+        player.x = Math.cos(ang0) * 18;
+        player.z = Math.sin(ang0) * 18;
+        yaw = wrapYaw(Math.atan2(player.x, player.z));
+        prevYaw = yaw;
+        camY = blockHeightAt(player.x, player.z) + EYE;
+        camera.position.set(player.x, camY, player.z);
+      }
+
+      reloadWrap.classList.remove("on");
+      reloadFill.style.width = "0%";
+      xhair.classList.remove("hit");
+      S.hitShown = false;
+      updateHUD(); updateHP(); updateAmmo();
+    }
+
+    function startCountdown() {
+      S.mode = "count";
+      S.countT = 3.0;
+      S.lastCount = 4;
+      if (countEl.getAnimations) countEl.getAnimations().forEach(function (a) { a.cancel(); });
+      countEl.classList.remove("hidden");
+      countEl.style.opacity = "1";
+      countEl.textContent = "3";
+      updateLockHint();
+    }
+
+    function beginPlay() {
+      S.mode = "play";
+      xhair.classList.remove("hidden");
+      scopeBtn.classList.add("show");
+      if (DUEL.on) {
+        showBanner("DUEL — FIRST TO " + DUEL_TARGET);
+        sHorn();
+        /* no zombies, no waves in duel */
+      } else {
+        showBanner("WAVE 1");
+        sHorn();
+        if (!isGuest()) spawnWave(1); // guests render enemies from host snapshots
+      }
+      updateLockHint();
+    }
+
+    function spawnWave(w) {
+      var n = 4 + 2 * w;
+      for (var i = 0; i < n; i++) spawnEnemy(w);
+    }
+
+    function doPause() {
+      if (MP.on && MP.started) {
+        /* MP: pause is local-only — sim/snapshots keep flowing, just freeze input */
+        if (S.mode !== "play" || localPaused) return;
+        localPaused = true;
+        S.firing = false;
+        setScope(false);
+        mpPauseNote.classList.remove("hidden");
+        pauseOv.classList.remove("hidden");
+        xhair.classList.add("hidden");
+        updateLockHint();
+        unlock();
+        return;
+      }
+      if (S.mode !== "play") return;
+      S.mode = "pause";
+      S.firing = false;
+      setScope(false);
+      pauseOv.classList.remove("hidden");
+      xhair.classList.add("hidden");
+      updateLockHint();
+      unlock();
+    }
+    function doResume() {
+      if (MP.on && MP.started) {
+        if (!localPaused) return;
+        localPaused = false;
+        mpPauseNote.classList.add("hidden");
+        pauseOv.classList.add("hidden");
+        if (!meDown) xhair.classList.remove("hidden");
+        tryLock();
+        updateLockHint();
+        return;
+      }
+      if (S.mode !== "pause") return;
+      S.mode = "play";
+      pauseOv.classList.add("hidden");
+      xhair.classList.remove("hidden");
+      tryLock(); // resume click is a user gesture — re-grab aim lock
+      updateLockHint();
+    }
+
+    function fmtTime(sec) {
+      var m = Math.floor(sec / 60), s = Math.floor(sec % 60);
+      return m + ":" + (s < 10 ? "0" : "") + s;
+    }
+
+    function gameOver() {
+      S.mode = "over";
+      S.firing = false;
+      setScope(false);
+      scopeBtn.classList.remove("show");
+      localPaused = false;
+      mpPauseNote.classList.add("hidden");
+      pauseOv.classList.add("hidden");
+      downChip.classList.add("hidden");
+      if (MP.on && MP.started && !MP.isHost) {
+        retryBtn.classList.add("hidden");
+        guestWait.classList.remove("hidden");
+      } else {
+        retryBtn.classList.remove("hidden");
+        guestWait.classList.add("hidden");
+      }
+      xhair.classList.add("hidden");
+      reloadWrap.classList.remove("on");
+      updateLockHint();
+      unlock();
+      sOver();
+      finalScore.textContent = S.score;
+      if (S.score > S.best) {
+        S.best = S.score;
+        localStorage.setItem("psDropBest", String(S.best));
+        bestLine.textContent = "New personal best — " + S.best;
+        bestLine.classList.add("newbest");
+      } else {
+        bestLine.textContent = "Best: " + S.best;
+        bestLine.classList.remove("newbest");
+      }
+      stKills.textContent = S.kills;
+      stWaves.textContent = S.wave;
+      stAcc.textContent = (S.shots > 0 ? Math.round(S.hits / S.shots * 100) : 0) + "%";
+      stTime.textContent = fmtTime(S.playT);
+      updateHUD();
+      over.classList.remove("hidden");
+    }
+
+    /* ================= SHOOTING ================= */
+    function startReload() {
+      if (S.reloading || S.ammo === 30 || S.mode !== "play") return;
+      S.reloading = true;
+      S.reloadT = 0;
+      reloadWrap.classList.add("on");
+      sReload();
+    }
+
+    function shootOnce() {
+      /* fire from camera center along look direction; tracer flies from muzzle to converge on aim ray */
+      camera.getWorldDirection(_dir);
+      muzzle.getWorldPosition(_v);
+      _v3.copy(camera.position).addScaledVector(_dir, scoped ? 120 : 70);
+      _v2.copy(_v3).sub(_v).normalize();
+      var b = getBullet();
+      b.active = true;
+      b.vis = false;
+      b.life = 1.5;
+      b.mesh.visible = true;
+      b.mesh.position.copy(_v);
+      b.vx = _v2.x * 100; b.vy = _v2.y * 100; b.vz = _v2.z * 100;
+      S.ammo--;
+      S.shots++;
+      updateAmmo();
+      muzzleFlash.visible = true;
+      muzzleLight.intensity = 2.4;
+      S.flashT = .06;
+      recoilT = scoped ? .5 : 1;
+      S.shake = Math.min(.35, S.shake + (scoped ? .012 : .03));
+      sGun();
+      if (MP.on && MP.started) {
+        shotMsg.ox = r2(_v.x); shotMsg.oy = r2(_v.y); shotMsg.oz = r2(_v.z);
+        shotMsg.dx = r2(_v2.x); shotMsg.dy = r2(_v2.y); shotMsg.dz = r2(_v2.z);
+        if (MP.isHost) { shotMsg.pid = 0; mpBroadcast(shotMsg); }
+        else { shotMsg.pid = MP.myPid; netSend(MP.hostConn, shotMsg); }
+      }
+      if (S.ammo <= 0) startReload();
+    }
+
+    /* visual-only tracer for teammates' shots (never damages anything) */
+    var shotMsg = { t: "shot", pid: 0, ox: 0, oy: 0, oz: 0, dx: 0, dy: 0, dz: 0 };
+    function spawnTracer(ox, oy, oz, dx, dy, dz) {
+      var b = getBullet();
+      b.active = true;
+      b.vis = true;
+      b.life = 1.5;
+      b.mesh.visible = true;
+      b.mesh.position.set(ox, oy, oz);
+      b.vx = dx * 100; b.vy = dy * 100; b.vz = dz * 100;
+    }
+
+    /* ================= UPDATES ================= */
+    function updateCount(dt) {
+      S.countT -= dt;
+      var n = Math.ceil(S.countT);
+      if (n > 0 && n !== S.lastCount) {
+        S.lastCount = n;
+        countEl.textContent = String(n);
+        countEl.animate(
+          [{ transform: "translate(-50%,-50%) scale(1.25)", opacity: 1 },
+           { transform: "translate(-50%,-50%) scale(1)", opacity: 1 }],
+          { duration: 280, easing: "ease-out" }
+        );
+        sBeep(false);
+      }
+      if (S.countT <= 0) {
+        countEl.textContent = "GO";
+        countEl.animate(
+          [{ opacity: 1, transform: "translate(-50%,-50%) scale(1)" },
+           { opacity: 0, transform: "translate(-50%,-50%) scale(1.35)" }],
+          { duration: 520, easing: "ease-out", fill: "forwards" }
+        );
+        sBeep(true);
+        beginPlay();
+      }
+    }
+
+    function updateViewmodel(dt, moving, t) {
+      /* recoil spring */
+      if (recoilT > 0) recoilT = Math.max(0, recoilT - dt * 7);
+
+      /* turn lag / inertia */
+      var dY = yaw - prevYaw;
+      if (dY > Math.PI) dY -= Math.PI * 2; else if (dY < -Math.PI) dY += Math.PI * 2;
+      var dP = pitch - prevPitch;
+      prevYaw = yaw; prevPitch = pitch;
+      var tY = dY * 4; if (tY > .1) tY = .1; else if (tY < -.1) tY = -.1;
+      var tP = dP * 4; if (tP > .1) tP = .1; else if (tP < -.1) tP = -.1;
+      var k = Math.min(1, dt * 10);
+      lagY += (tY - lagY) * k;
+      lagP += (tP - lagP) * k;
+
+      /* walk sway + idle breathing */
+      var swayAmt = moving ? 1 : 0;
+      var swX = Math.sin(bobT) * .014 * swayAmt;
+      var swY = Math.abs(Math.cos(bobT)) * .02 * swayAmt;
+      var breathe = Math.sin(t * 1.7) * .004;
+
+      /* reload dip */
+      var dip = S.reloading ? Math.sin(Math.min(1, S.reloadT / 1.1) * Math.PI) : 0;
+
+      rifleView.position.set(
+        VM_X + swX + lagY * .06,
+        VM_Y - swY + breathe - dip * .16 - lagP * .04,
+        VM_Z + recoilT * .075
+      );
+      rifleView.rotation.set(
+        recoilT * .1 - dip * .5 + lagP * .6,
+        VM_RY + lagY * .8,
+        -lagY * .4 + dip * .3 - swX * .6
+      );
+    }
+
+    function updatePlay(dt) {
+      S.playT += dt;
+      var t = S.playT;
+
+      /* down players spectate; locally-paused MP players keep the sim but drop input */
+      var inputDead = meDown || localPaused;
+
+      /* NOTE: all look input is strictly delta-based (mousemove movementX/Y, touch drag).
+         There is intentionally NO cursor-offset steering — an off-center resting cursor
+         must never rotate the view. */
+
+      /* ----- movement input (relative to camera yaw) ----- */
+      var f = 0, s = 0;
+      if (!inputDead) {
+        if (keys.up) f += 1;
+        if (keys.down) f -= 1;
+        if (keys.right) s += 1;
+        if (keys.left) s -= 1;
+        if (touchMove.active) { s = touchMove.x; f = -touchMove.y; }
+      }
+      var mlen = Math.sqrt(f * f + s * s);
+      if (mlen > 1) { f /= mlen; s /= mlen; }
+      var moving = mlen > .08;
+      S.movingNow = moving;
+      var sprinting = keys.sprint && moving && !scoped; // can't sprint while scoped
+      var spd = scoped ? 4.6 : (sprinting ? 12 : 8.5); // scoped = slow, steady walk
+
+      var sy = Math.sin(yaw), cy = Math.cos(yaw);
+      var mvx = -sy * f + cy * s;
+      var mvz = -cy * f - sy * s;
+
+      player.x += mvx * spd * dt + knock.x * dt;
+      player.z += mvz * spd * dt + knock.z * dt;
+      knock.multiplyScalar(Math.max(0, 1 - 6 * dt));
+      if (player.x > PLAY_HALF) player.x = PLAY_HALF;
+      if (player.x < -PLAY_HALF) player.x = -PLAY_HALF;
+      if (player.z > PLAY_HALF) player.z = PLAY_HALF;
+      if (player.z < -PLAY_HALF) player.z = -PLAY_HALF;
+
+      /* head bob + idle breathing sway (stronger on sprint) */
+      if (moving) {
+        bobT += dt * (sprinting ? 11.5 : 9);
+        camBob = Math.sin(bobT * 2) * (sprinting ? .062 : .048);
+      } else {
+        camBob *= Math.max(0, 1 - 8 * dt);
+      }
+      camBreath = Math.sin(t * 1.7) * .015;
+
+      /* FOV ease: scope zoom (30) overrides sprint (82) / base (75) */
+      var fovT = scoped ? SCOPE_FOV : (sprinting ? SPRINT_FOV : BASE_FOV);
+      if (Math.abs(camera.fov - fovT) > .01) {
+        camera.fov += (fovT - camera.fov) * Math.min(1, dt * (scoped ? 13 : 6));
+        camera.updateProjectionMatrix();
+      }
+
+      updateViewmodel(dt, moving, t);
+
+      /* ----- firing / reload ----- */
+      S.fireT -= dt;
+      if (tapShot) {
+        tapShot = false;
+        if (!inputDead && !S.reloading && S.ammo > 0 && S.fireT <= 0) { shootOnce(); S.fireT = 1 / 7; }
+      }
+      if (S.firing && !inputDead && !S.reloading && S.ammo > 0 && S.fireT <= 0) {
+        shootOnce();
+        S.fireT = 1 / 7;
+      }
+      if (S.reloading) {
+        S.reloadT += dt;
+        reloadFill.style.width = Math.min(100, S.reloadT / 1.1 * 100) + "%";
+        if (S.reloadT >= 1.1) {
+          S.reloading = false;
+          S.ammo = 30;
+          updateAmmo();
+          reloadWrap.classList.remove("on");
+          reloadFill.style.width = "0%";
+        }
+      }
+      if (S.flashT > 0) {
+        S.flashT -= dt;
+        if (S.flashT <= 0) { muzzleFlash.visible = false; muzzleLight.intensity = 0; }
+      }
+      if (S.hitT > 0) {
+        S.hitT -= dt;
+        if (S.hitT <= 0 && S.hitShown) { xhair.classList.remove("hit"); S.hitShown = false; }
+      }
+
+      /* ----- spatial hash rebuild (buckets persist; arrays just reset — cheap) ----- */
+      var i, j, b, e, o, near;
+      grid.clear();
+      for (i = 0; i < enemies.length; i++) {
+        e = enemies[i];
+        if (e.active && !e.dead) grid.insert(e, e.g.position.x, e.g.position.z);
+      }
+
+      /* ----- bullets (enemy lookups via the spatial hash, not O(n*m)) ----- */
+      for (i = 0; i < bullets.length; i++) {
+        b = bullets[i];
+        if (!b.active) continue;
+        b.mesh.position.x += b.vx * dt;
+        b.mesh.position.y += b.vy * dt;
+        b.mesh.position.z += b.vz * dt;
+        b.life -= dt;
+        var bx = b.mesh.position.x, by = b.mesh.position.y, bz = b.mesh.position.z;
+        if (b.life <= 0 || Math.abs(bx) > WORLD_HALF + 5 || Math.abs(bz) > WORLD_HALF + 5 || by > 55) {
+          b.active = false; b.mesh.visible = false;
+          continue;
+        }
+        /* block terrain hit: pop a few dirt cubes */
+        var gy = blockHeightAt(bx, bz);
+        if (by < gy) {
+          b.active = false; b.mesh.visible = false;
+          spawnDebris(bx, gy + .08, bz, dirtMat, 4 + ((Math.random() * 2) | 0));
+          continue;
+        }
+        /* tree hits: trunk -> log chips + lasting bullet hole, canopy -> leaf chips + scorch */
+        var hitTree = false;
+        for (j = 0; j < treeList.length; j++) {
+          var tr = treeList[j];
+          var tdx = bx - tr.x, tdz = bz - tr.z;
+          var td2 = tdx * tdx + tdz * tdz;
+          if (by > tr.canopyY0 && by < tr.canopyY1 && td2 < 6.25) {
+            spawnDebris(bx, by, bz, leafMat, 4 + ((Math.random() * 2) | 0));
+            spawnBulletHole(bx, by, bz, camera.position.x, camera.position.z, .7);
+            hitTree = true;
+            break;
+          }
+          if (by > tr.baseY && by <= tr.topY && td2 < .36) {
+            spawnDebris(bx, by, bz, logMat, 4 + ((Math.random() * 2) | 0));
+            /* stamp the hole on the trunk's bark surface, facing the shooter */
+            var td = Math.sqrt(td2) || 1;
+            var hx = tr.x + tdx / td * .58, hz = tr.z + tdz / td * .58;
+            spawnBulletHole(hx, by, hz, camera.position.x, camera.position.z, 1);
+            hitTree = true;
+            break;
+          }
+        }
+        if (hitTree) {
+          b.active = false; b.mesh.visible = false;
+          continue;
+        }
+        if (b.vis) continue; // teammate tracer: pure visual, no damage
+        /* ----- DUEL: my own shots raycast against rival soldier models ----- */
+        if (DUEL.on) {
+          var hitRival = false;
+          for (j = 0; j < MP.plist.length; j++) {
+            var rv = MP.plist[j];
+            if (rv.down || rv.hp <= 0 || rv.prot > 0) continue; // dead/blinking = no damage
+            var rgp = rv.model.g.position;
+            var pdx = bx - rgp.x, pdz = bz - rgp.z;
+            var relY = by - rgp.y; // model foot is at g.position.y
+            if (pdx * pdx + pdz * pdz < .45 && relY > -.1 && relY < 2.25) {
+              var dmgP = relY > 1.55 ? 40 : 25; // head region 40, body 25
+              b.active = false; b.mesh.visible = false;
+              S.hits++;
+              spawnDmg(rgp.x, rgp.y + 2.3, rgp.z, dmgP);
+              xhair.classList.add("hit");
+              S.hitShown = true;
+              S.hitT = .09;
+              sTick();
+              if (MP.isHost) hostApplyPhit(0, rv.pid, dmgP);
+              else netSend(MP.hostConn, { t: "phit", pid: rv.pid, dmg: dmgP });
+              hitRival = true;
+              break;
+            }
+          }
+          if (hitRival) continue;
+        }
+        near = grid.queryNear(bx, bz, 1.8);
+        for (j = 0; j < near.length; j++) {
+          e = near[j];
+          if (e.dead) continue; // killed earlier this frame, still in the hash
+          var dx = bx - e.g.position.x;
+          var dz = bz - e.g.position.z;
+          var dy = by - (e.g.position.y + 1.15 * e.scl);
+          /* capsule-ish: forgive vertical span of the body */
+          var ady = Math.abs(dy) - .7 * e.scl;
+          if (ady < 0) ady = 0;
+          if (dx * dx + ady * ady + dz * dz < .5 * e.scl * e.scl) {
+            b.active = false; b.mesh.visible = false;
+            S.hits++;
+            e.hp -= 34;
+            e.hpFront.scale.x = Math.max(.001, e.hp / e.maxhp);
+            applyFlash(e); /* shared red flash material swap */
+            e.flashT = .1;
+            spawnDmg(e.g.position.x, e.g.position.y + 2.15 * e.scl, e.g.position.z, 34);
+            xhair.classList.add("hit");
+            S.hitShown = true;
+            S.hitT = .09;
+            sTick();
+            if (isGuest()) {
+              /* client-side hit detection: report to host, predict the kill locally */
+              netSend(MP.hostConn, { t: "hit", eid: e.id, dmg: 34, head: 0 });
+              if (e.hp <= 0) guestEnemyDead(e);
+            } else if (e.hp <= 0) {
+              killEnemy(e, 0);
+            }
+            break;
+          }
+        }
+      }
+
+      /* ----- enemies ----- */
+      if (isGuest()) {
+        updateGuestEnemies(dt, t); // guests interpolate host snapshots, no local AI
+      } else
+      for (i = 0; i < enemies.length; i++) {
+        e = enemies[i];
+        if (!e.active) continue;
+
+        if (e.flashT > 0) {
+          e.flashT -= dt;
+          if (e.flashT <= 0) applyMats(e);
+        }
+
+        if (e.dead) {
+          /* fall over (rotate to ~-90 over .4s), then sink & recycle */
+          e.dieT += dt;
+          e.g.rotation.x = -Math.min(e.dieT * 4, 1.55);
+          if (e.dieT > .42) e.g.position.y -= dt * 2.2;
+          if (e.dieT > 1.05) {
+            e.active = false;
+            e.g.visible = false;
+            if (MP.eidMap[e.id] === e) delete MP.eidMap[e.id];
+          }
+          continue;
+        }
+
+        /* steer toward the NEAREST live player (local in solo; any teammate in MP) */
+        pickTarget(e.g.position.x, e.g.position.z);
+        var ex = _tx - e.g.position.x;
+        var ez = _tz - e.g.position.z;
+        var dist = Math.sqrt(ex * ex + ez * ez);
+        var inv = 1 / (dist || 1);
+
+        e.g.rotation.y = Math.atan2(ex, ez);
+
+        /* tiny neural-net steering brain — staggered ~4 Hz think ticks, not every frame */
+        e.brainT -= dt;
+        if (e.brainT <= 0) {
+          e.brainT = .22 + Math.random() * .07;
+          var aE = Math.atan2(-ex, -ez);        // world angle target -> enemy
+          var rel = aE - _tyawV + Math.PI;      // 0 when the enemy is dead-ahead of its target
+          _nnIn[0] = Math.min(1, dist / 40);
+          _nnIn[1] = Math.sin(rel);
+          _nnIn[2] = Math.cos(rel);
+          _nnIn[3] = e.hp / e.maxhp;
+          _nnIn[4] = _tfireV ? 1 : 0;
+          var out = e.brain.forward(_nnIn);
+          e.adv = .25 + .75 * Math.max(0, out[0]); // forward drive (never reverses)
+          e.str = out[1];                          // lateral strafe / flank drive
+        }
+
+        if (dist > 1.5) {
+          /* velocity = advance*dirToPlayer + strafe*perpendicular */
+          var nx2 = ex * inv, nz2 = ez * inv;
+          var px2 = -nz2, pz2 = nx2;
+          var vx2 = e.adv * nx2 + e.str * px2;
+          var vz2 = e.adv * nz2 + e.str * pz2;
+          var vl = Math.sqrt(vx2 * vx2 + vz2 * vz2);
+          if (vl > 1) { vx2 /= vl; vz2 /= vl; }
+          e.g.position.x += vx2 * e.speed * dt;
+          e.g.position.z += vz2 * e.speed * dt;
+          var esw = Math.sin(t * (5 + e.speed * 1.6) + e.phase);
+          e.legL.rotation.x = esw * .75;
+          e.legR.rotation.x = -esw * .75;
+          /* zombie arms: raised forward with a shamble bob */
+          e.armL.rotation.x = -1.35 + esw * .18;
+          e.armR.rotation.x = -1.35 - esw * .18;
+        } else {
+          e.legL.rotation.x *= .8;
+          e.legR.rotation.x *= .8;
+          e.armL.rotation.x += (-1.2 - e.armL.rotation.x) * .2;
+          e.armR.rotation.x += (-1.2 - e.armR.rotation.x) * .2;
+        }
+
+        /* separation via the spatial hash (only nearby enemies, no n^2 sweep) */
+        near = grid.queryNear(e.g.position.x, e.g.position.z, 1.2);
+        for (j = 0; j < near.length; j++) {
+          o = near[j];
+          if (o === e) continue;
+          var sx = e.g.position.x - o.g.position.x;
+          var sz = e.g.position.z - o.g.position.z;
+          var d2 = sx * sx + sz * sz;
+          if (d2 < .81 && d2 > .0001) {
+            var d = Math.sqrt(d2);
+            var push = (.9 - d) * .5;
+            e.g.position.x += sx / d * push;
+            e.g.position.z += sz / d * push;
+          }
+        }
+
+        var elim = WORLD_HALF - 3;
+        if (e.g.position.x > elim) e.g.position.x = elim;
+        if (e.g.position.x < -elim) e.g.position.x = -elim;
+        if (e.g.position.z > elim) e.g.position.z = elim;
+        if (e.g.position.z < -elim) e.g.position.z = -elim;
+
+        /* step up/down the block terrain (smoothed so it reads as a hop, not a snap) */
+        var ty = blockHeightAt(e.g.position.x, e.g.position.z);
+        e.g.position.y += (ty - e.g.position.y) * Math.min(1, dt * 12);
+
+        /* melee — both arms raise into a swing when in range */
+        e.atkT -= dt;
+        if (e.atkAnim > 0) {
+          e.atkAnim -= dt;
+          var ap = 1 - e.atkAnim / .3;
+          e.g.rotation.x = Math.sin(ap * Math.PI) * .4;
+          e.armL.rotation.x = -1.3 - Math.sin(ap * Math.PI) * .9;
+          e.armR.rotation.x = -1.3 - Math.sin(ap * Math.PI) * .9;
+          if (ap < .5 && dist > .8) {
+            /* forward lunge hop */
+            e.g.position.x += ex * inv * 6.5 * dt;
+            e.g.position.z += ez * inv * 6.5 * dt;
+          }
+          if (e.atkAnim <= 0) e.g.rotation.x = 0;
+        }
+        if (dist < 2.0 + (e.scl - 1) * .8 && e.atkT <= 0) {
+          e.atkT = .95;
+          e.atkAnim = .3;
+          if (_trec) {
+            /* melee lands on a remote teammate (host-authoritative) */
+            hostDamageRemote(_trec, 12);
+          } else if (!meDown) {
+            S.hp -= 12;
+            updateHP();
+            flashVignette();
+            S.shake = Math.min(.9, S.shake + .3);
+            sHurt();
+            knock.x += ex * inv * 9;
+            knock.z += ez * inv * 9;
+            if (S.hp <= 0) {
+              S.hp = 0;
+              updateHP();
+              if (MP.on && MP.isHost) localDown();
+              else { gameOver(); return; }
+            }
+          }
+        }
+
+        /* hp bar billboard */
+        e.hpG.lookAt(camera.position);
+      }
+
+      /* ----- block debris particles (pooled) ----- */
+      for (i = 0; i < debris.length; i++) {
+        var dbr = debris[i];
+        if (!dbr.active) continue;
+        dbr.life -= dt;
+        if (dbr.life <= 0) { dbr.active = false; dbr.mesh.visible = false; continue; }
+        dbr.vy -= 12 * dt;
+        dbr.mesh.position.x += dbr.vx * dt;
+        dbr.mesh.position.y += dbr.vy * dt;
+        dbr.mesh.position.z += dbr.vz * dt;
+        dbr.mesh.rotation.x += dt * 7;
+        dbr.mesh.rotation.y += dt * 5;
+      }
+
+      /* ----- floating damage numbers (pooled) ----- */
+      for (i = 0; i < dmgPool.length; i++) {
+        var dn = dmgPool[i];
+        if (!dn.active) continue;
+        dn.life -= dt;
+        if (dn.life <= 0) { dn.active = false; dn.sprite.visible = false; continue; }
+        dn.sprite.position.y += dt * 1.4;
+        dn.mat.opacity = Math.min(1, dn.life / .3);
+      }
+
+      /* ----- medkit (walk into it) ----- */
+      if (medkitActive) {
+        medkit.rotation.y += dt * 1.6;
+        medkit.position.y = medkitBaseY + Math.sin(t * 2.4) * .09 + .06;
+        var mdx = player.x - medkit.position.x;
+        var mdz = player.z - medkit.position.z;
+        if (mdx * mdx + mdz * mdz < 2.0) {
+          medkitActive = false;
+          medkit.visible = false;
+          S.hp = Math.min(100, S.hp + 35);
+          updateHP();
+          sChime();
+        }
+      }
+
+      /* ----- hp boxes (drops on kills + ambient, bob + pickup) ----- */
+      updateAmbientBoxes(dt);
+      updateHpBoxes(dt, t);
+
+      /* ----- duel respawns / spawn protection (host authoritative) ----- */
+      if (DUEL.on) updateDuel(dt);
+
+      /* ----- waves (host/solo only — guests get wave events; never in duel) ----- */
+      if (!isGuest() && !DUEL.on) {
+        if (S.inBreak) {
+          S.breakT -= dt;
+          if (S.breakT <= 0) {
+            S.inBreak = false;
+            S.wave++;
+            updateHUD();
+            spawnWave(S.wave);
+            if (MP.on && MP.isHost) {
+              mpBroadcast({ t: "wave", n: S.wave });
+              if (meDown) respawnSelf();
+              for (i = 0; i < MP.plist.length; i++) {
+                if (MP.plist[i].down) { MP.plist[i].down = false; MP.plist[i].hp = 60; }
+              }
+            }
+          }
+        } else if (S.alive <= 0) {
+          S.inBreak = true;
+          S.breakT = 2.5;
+          showBanner("WAVE " + (S.wave + 1));
+          sHorn();
+          if (!MP.on) dropMedkit(); // classic medkit stays a solo perk; MP heals via hp boxes
+        }
+      }
+    }
+
+    function updateCamera(dt) {
+      if (S.mode === "menu" || S.mode === "over") {
+        S.menuT += dt;
+        rifleView.visible = false;
+        camera.position.set(Math.sin(S.menuT * .09) * 26, 14, Math.cos(S.menuT * .09) * 26);
+        camera.lookAt(0, 1.2, 0);
+        return;
+      }
+      /* first person: the camera is the player; eye height lerps so block steps feel okay.
+         While airborne (space jump) the step-lerp yields to real vertical physics. */
+      rifleView.visible = !scoped; // looking down the scope hides the held rifle
+      var targetY = blockHeightAt(player.x, player.z) + EYE;
+      if (airborne) {
+        if (S.mode === "play") {
+          velY -= 22 * dt;
+          camY += velY * dt;
+          if (velY <= 0 && camY <= targetY) {
+            camY = targetY;
+            velY = 0;
+            airborne = false;
+            landT = .22; // landing dip
+            sLand();
+          }
+        }
+      } else {
+        camY += (targetY - camY) * Math.min(1, dt * 10);
+      }
+      var lDip = 0;
+      if (landT > 0) {
+        landT = Math.max(0, landT - dt);
+        lDip = Math.sin((1 - landT / .22) * Math.PI) * .09;
+      }
+      camera.position.set(player.x, camY + camBob + camBreath - lDip, player.z);
+      var shX = 0, shY = 0;
+      if (S.shake > 0) {
+        S.shake = Math.max(0, S.shake - dt * 2.4);
+        shX = (Math.random() - .5) * S.shake * .05;
+        shY = (Math.random() - .5) * S.shake * .05;
+      }
+      camera.rotation.set(pitch + recoilT * .013 + shX, yaw + shY, 0);
+    }
+
+    /* ================= INPUT ================= */
+    function keyFlag(code, on) {
+      switch (code) {
+        case "KeyW": case "ArrowUp": keys.up = on; return true;
+        case "KeyS": case "ArrowDown": keys.down = on; return true;
+        case "KeyA": case "ArrowLeft": keys.left = on; return true;
+        case "KeyD": case "ArrowRight": keys.right = on; return true;
+        case "ShiftLeft": case "ShiftRight": keys.sprint = on; return true;
+      }
+      return false;
+    }
+
+    function doJump() {
+      if (S.mode !== "play" || meDown || localPaused || airborne) return; // no double-jump
+      airborne = true;
+      velY = 7.6;
+      if (MP.on && MP.started) {
+        if (MP.isHost) mpBroadcast({ t: "jump", pid: 0 });
+        else netSend(MP.hostConn, { t: "jump" });
+      }
+    }
+
+    window.addEventListener("keydown", function (ev) {
+      if (ev.target && ev.target.tagName === "INPUT") return; // typing a room code, not playing
+      if (ev.repeat) return;
+      initAudio();
+      if (ev.code === "Space") { ev.preventDefault(); doJump(); return; }
+      if (keyFlag(ev.code, true)) { ev.preventDefault(); return; }
+      if (ev.code === "KeyR") startReload();
+      else if (ev.code === "KeyM") toggleMute();
+      else if (ev.code === "KeyP" || ev.code === "Escape") {
+        if (MP.on && MP.started) {
+          if (S.mode !== "play") return;
+          if (!localPaused) doPause();
+          else {
+            if (ev.code === "Escape" && Date.now() - lockExitAt < 400) return;
+            doResume();
+          }
+        }
+        else if (S.mode === "play") doPause();
+        else if (S.mode === "pause") {
+          /* pointer-lock exit already auto-paused us; swallow the trailing Esc */
+          if (ev.code === "Escape" && Date.now() - lockExitAt < 400) return;
+          doResume();
+        }
+      }
+    });
+    window.addEventListener("keyup", function (ev) { keyFlag(ev.code, false); });
+
+    /* mouse look: strictly DELTA-based in BOTH locked and unlocked states.
+       movementX/Y works without pointer lock in Chrome/Safari/Firefox; a resting
+       cursor produces zero delta, so the view can never auto-rotate. */
+    document.addEventListener("mousemove", function (ev) {
+      if (S.mode !== "play" && S.mode !== "count") return;
+      if (localPaused) return;
+      var mdx = +ev.movementX, mdy = +ev.movementY;
+      if (!Number.isFinite(mdx)) mdx = 0;
+      if (!Number.isFinite(mdy)) mdy = 0;
+      /* clamp absurd single-event deltas (OS warp glitches) */
+      if (mdx > 300) mdx = 300; else if (mdx < -300) mdx = -300;
+      if (mdy > 300) mdy = 300; else if (mdy < -300) mdy = -300;
+      var sens = scoped ? SENS * .42 : SENS; // steadier aim while scoped
+      yaw -= mdx * sens;
+      pitch -= mdy * sens;
+      clampPitch(); // clamps pitch to +/-70deg, wraps yaw to [-PI, PI], NaN-guards both
+    });
+
+    canvas.addEventListener("pointerdown", function (ev) {
+      initAudio();
+      if (isCoarse && ev.pointerType === "touch") return; // handled by touch logic
+      if (ev.button === 2) { // right-click = hold to aim down the scope
+        if (S.mode === "play") setScope(true);
+        return;
+      }
+      if (ev.button !== 0) return;
+      if (S.mode === "play" || S.mode === "count") tryLock();
+      if (S.mode === "play") S.firing = true;
+    });
+    window.addEventListener("pointerup", function (ev) {
+      if (isCoarse && ev.pointerType === "touch") return;
+      if (ev.button === 2) { setScope(false); return; }
+      if (ev.button === 0) S.firing = false;
+    });
+    window.addEventListener("blur", function () { S.firing = false; });
+    canvas.addEventListener("contextmenu", function (ev) { ev.preventDefault(); });
+
+    /* ----- touch (coarse pointers): left drag move, right drag look, right tap fire ----- */
+    var touchMove = { active: false, x: 0, y: 0, id: -1, ox: 0, oy: 0 };
+    var touchAim = { id: -1, lx: 0, ly: 0, moved: 0, t0: 0 };
+
+    function onTouchStart(ev) {
+      initAudio();
+      if (!isCoarse) return;
+      for (var i = 0; i < ev.changedTouches.length; i++) {
+        var t = ev.changedTouches[i];
+        if (t.clientX < window.innerWidth * .5 && touchMove.id === -1) {
+          touchMove.id = t.identifier;
+          touchMove.active = true;
+          touchMove.ox = t.clientX; touchMove.oy = t.clientY;
+          touchMove.x = 0; touchMove.y = 0;
+          joy.style.display = "block";
+          joy.style.left = t.clientX + "px";
+          joy.style.top = t.clientY + "px";
+          joyKnob.style.transform = "translate(0px,0px)";
+        } else if (touchAim.id === -1) {
+          touchAim.id = t.identifier;
+          touchAim.lx = t.clientX; touchAim.ly = t.clientY;
+          touchAim.moved = 0;
+          touchAim.t0 = Date.now();
+        }
+      }
+      if (S.mode === "play") ev.preventDefault();
+    }
+    function onTouchMove(ev) {
+      if (!isCoarse) return;
+      for (var i = 0; i < ev.changedTouches.length; i++) {
+        var t = ev.changedTouches[i];
+        if (t.identifier === touchMove.id) {
+          var dx = t.clientX - touchMove.ox, dy = t.clientY - touchMove.oy;
+          var len = Math.sqrt(dx * dx + dy * dy);
+          var max = 42;
+          if (len > max) { dx = dx / len * max; dy = dy / len * max; }
+          touchMove.x = dx / max; touchMove.y = dy / max;
+          joyKnob.style.transform = "translate(" + dx + "px," + dy + "px)";
+        } else if (t.identifier === touchAim.id) {
+          var ldx = t.clientX - touchAim.lx, ldy = t.clientY - touchAim.ly;
+          touchAim.lx = t.clientX; touchAim.ly = t.clientY;
+          touchAim.moved += Math.abs(ldx) + Math.abs(ldy);
+          if (S.mode === "play") {
+            var tsens = scoped ? .0019 : .0045; // steadier aim while scoped
+            yaw -= ldx * tsens;
+            pitch -= ldy * tsens;
+            clampPitch();
+          }
+        }
+      }
+      if (S.mode === "play") ev.preventDefault();
+    }
+    function onTouchEnd(ev) {
+      if (!isCoarse) return;
+      for (var i = 0; i < ev.changedTouches.length; i++) {
+        var t = ev.changedTouches[i];
+        if (t.identifier === touchMove.id) {
+          touchMove.id = -1; touchMove.active = false;
+          touchMove.x = 0; touchMove.y = 0;
+          joy.style.display = "none";
+        } else if (t.identifier === touchAim.id) {
+          /* short, still touch on right half = fire */
+          if (touchAim.moved < 12 && Date.now() - touchAim.t0 < 320 && S.mode === "play") {
+            tapShot = true;
+          }
+          touchAim.id = -1;
+          S.firing = false;
+        }
+      }
+    }
+    canvas.addEventListener("touchstart", onTouchStart, { passive: false });
+    canvas.addEventListener("touchmove", onTouchMove, { passive: false });
+    canvas.addEventListener("touchend", onTouchEnd);
+    canvas.addEventListener("touchcancel", onTouchEnd);
+
+    /* ----- buttons ----- */
+    startBtn.addEventListener("click", function () {
+      initAudio();
+      if (MP.peer) { mpShutdown(); mpResetMenuUI(); } // Deploy = solo; abandon any open room
+      DUEL.on = false; // solo is always the classic wave mode
+      roomChip.classList.add("hidden");
+      resetGame();
+      menu.classList.add("hidden");
+      startCountdown();
+      tryLock(); // deploy click is a user gesture
+    });
+    retryBtn.addEventListener("click", function () {
+      initAudio();
+      if (MP.on && MP.isHost) {
+        over.classList.add("hidden");
+        mpHostStart(); // restart for everyone — guests get a fresh "start"
+        return;
+      }
+      resetGame();
+      over.classList.add("hidden");
+      startCountdown();
+      tryLock();
+    });
+    resumeBtn.addEventListener("click", function () { initAudio(); doResume(); });
+    pauseBtn.addEventListener("click", function () {
+      initAudio();
+      if (MP.on && MP.started) {
+        if (localPaused) doResume(); else doPause();
+        return;
+      }
+      if (S.mode === "play") doPause();
+      else if (S.mode === "pause") doResume();
+    });
+    muteBtn.addEventListener("click", function () { initAudio(); toggleMute(); });
+
+    /* on-screen scope toggle (tap = toggle ADS; mainly for touch / no-mouse) */
+    scopeBtn.addEventListener("click", function () { initAudio(); if (S.mode === "play") setScope(!scoped); });
+
+    document.addEventListener("visibilitychange", function () {
+      if (document.hidden && S.mode === "play") doPause();
+    });
+
+    /* ================= MULTIPLAYER CO-OP (PeerJS rooms, host-authoritative) ================= */
+
+    /* --- enemy targeting: nearest live player (module-level scratch, no allocs) --- */
+    var _tx = 0, _tz = 0, _trec = null, _tyawV = 0, _tfireV = false;
+    function pickTarget(x, z) {
+      var bd = Infinity;
+      _trec = null;
+      _tx = player.x; _tz = player.z; _tyawV = yaw; _tfireV = S.firing;
+      if (!meDown) {
+        var dx = player.x - x, dz = player.z - z;
+        bd = dx * dx + dz * dz;
+      }
+      if (MP.on && MP.isHost) {
+        for (var i = 0; i < MP.plist.length; i++) {
+          var p = MP.plist[i];
+          if (p.down) continue;
+          var dx2 = p.tx - x, dz2 = p.tz - z;
+          var d2 = dx2 * dx2 + dz2 * dz2;
+          if (d2 < bd) {
+            bd = d2;
+            _tx = p.tx; _tz = p.tz;
+            _trec = p;
+            _tyawV = p.tyaw;
+            _tfireV = p.shooting;
+          }
+        }
+      }
+    }
+
+    function hostDamageRemote(p, amt) {
+      p.hp -= amt;
+      mpBroadcast({ t: "dmg", pid: p.pid, amount: amt });
+      if (p.hp <= 0) {
+        p.hp = 0;
+        p.down = true;
+        checkAllDown();
+      }
+    }
+    function localDown() {
+      if (meDown) return;
+      meDown = true;
+      S.firing = false;
+      setScope(false);
+      xhair.classList.add("hidden");
+      downChip.classList.remove("hidden");
+      if (MP.on && MP.isHost) checkAllDown();
+    }
+    function checkAllDown() {
+      if (!MP.on || !MP.isHost || S.mode === "over" || DUEL.on) return; // co-op only
+      if (!meDown) return;
+      for (var i = 0; i < MP.plist.length; i++) if (!MP.plist[i].down) return;
+      /* every player is down at once — match over for the whole squad */
+      mpBroadcast({ t: "over", stats: { score: S.score, kills: S.kills, wave: S.wave } });
+      gameOver();
+    }
+    function respawnSelf() {
+      meDown = false;
+      downChip.classList.add("hidden");
+      if (!localPaused && S.mode === "play") xhair.classList.remove("hidden");
+      S.hp = 60;
+      updateHP();
+      player.x = 0; player.z = 0;
+      knock.set(0, 0, 0);
+      airborne = false; velY = 0;
+      camY = blockHeightAt(0, 0) + EYE;
+    }
+
+    /* ================= DUEL (1v1) — host authoritative ================= */
+    function duelSpawnPoint(kx, kz) {
+      /* random point in the arena at least 25 units from the killer (best effort) */
+      var bx = 0, bz = 0, bd = -1;
+      for (var i = 0; i < 24; i++) {
+        var x = (Math.random() - .5) * 56;
+        var z = (Math.random() - .5) * 56;
+        var dx = x - kx, dz = z - kz;
+        var d2 = dx * dx + dz * dz;
+        if (d2 >= 625) return { x: r2(x), z: r2(z) };
+        if (d2 > bd) { bd = d2; bx = x; bz = z; }
+      }
+      return { x: r2(bx), z: r2(bz) };
+    }
+    function killFeedback() {
+      xhair.classList.add("kill");
+      setTimeout(function () { xhair.classList.remove("kill"); }, 320);
+      killPop.textContent = "ELIMINATED +1";
+      killPop.animate(
+        [{ opacity: 1, transform: "translate(-50%,-52px)" },
+         { opacity: 0, transform: "translate(-50%,-82px)" }],
+        { duration: 750, easing: "ease-out" }
+      );
+      sThump();
+    }
+    function localDuelDeath(by) {
+      if (meDown) return;
+      meDown = true;
+      S.firing = false;
+      setScope(false);
+      S.hp = 0;
+      updateHP();
+      DUEL.deadT = 2.5;
+      DUEL.killerPid = by;
+      xhair.classList.add("hidden");
+      elimChip.classList.remove("hidden");
+      deathFx.animate([{ opacity: .8 }, { opacity: 0 }], { duration: 650, easing: "ease-out" });
+      S.shake = Math.min(1, S.shake + .5);
+      sHurt();
+    }
+    function duelRespawnSelf(x, z) {
+      meDown = false;
+      DUEL.deadT = 0;
+      elimChip.classList.add("hidden");
+      if (!localPaused && S.mode === "play" && !DUEL.over) xhair.classList.remove("hidden");
+      S.hp = 100;
+      updateHP();
+      player.x = x; player.z = z;
+      knock.set(0, 0, 0);
+      airborne = false; velY = 0;
+      camY = blockHeightAt(x, z) + EYE;
+      DUEL.protT = 1.5; // brief spawn protection
+    }
+    function sanitizeKills(src) {
+      var out = {};
+      for (var k in src) {
+        var v = +src[k];
+        if (Number.isFinite(v)) out[k] = Math.max(0, v | 0);
+      }
+      return out;
+    }
+    function hostApplyPhit(by, pid, dmg) {
+      if (!DUEL.on || DUEL.over || S.mode !== "play") return;
+      dmg = Math.max(0, Math.min(60, num(dmg, 0)));
+      if (!dmg || by === pid) return;
+      if (pid === 0) {
+        /* host is the victim */
+        if (meDown || DUEL.protT > 0) return;
+        S.hp -= dmg;
+        updateHP();
+        flashVignette();
+        S.shake = Math.min(.9, S.shake + .25);
+        sHurt();
+        if (S.hp <= 0) { S.hp = 0; updateHP(); duelKill(by, 0); }
+      } else {
+        var p = MP.players[pid];
+        if (!p || p.down || p.hp <= 0 || p.prot > 0) return;
+        p.hp -= dmg;
+        mpBroadcast({ t: "dmg", pid: pid, amount: dmg }); // victim shows vignette + shake
+        if (p.hp <= 0) { p.hp = 0; duelKill(by, pid); }
+      }
+    }
+    function duelKill(by, vicPid) {
+      DUEL.kills[by] = (DUEL.kills[by] || 0) + 1;
+      var kmap = sanitizeKills(DUEL.kills);
+      mpBroadcast({ t: "dkill", by: by, vic: vicPid, kills: kmap });
+      /* schedule the victim's respawn at >=25 units from the killer */
+      if (vicPid === 0) {
+        localDuelDeath(by);
+      } else {
+        var p = MP.players[vicPid];
+        if (p) {
+          var kx = player.x, kz = player.z;
+          if (by !== 0 && MP.players[by]) { kx = MP.players[by].tx; kz = MP.players[by].tz; }
+          var sp = duelSpawnPoint(kx, kz);
+          p.down = true;
+          p.hp = 0;
+          p.respawnT = 2.5;
+          p.rx = sp.x; p.rz = sp.z;
+        }
+      }
+      if (by === 0) killFeedback();
+      updateDuelHUD();
+      if (DUEL.kills[by] >= DUEL_TARGET) {
+        mpBroadcast({ t: "dwin", by: by, kills: kmap });
+        duelEnd(by);
+      }
+    }
+    function updateDuel(dt) {
+      if (DUEL.over) return;
+      if (DUEL.protT > 0) DUEL.protT -= dt;
+      if (!MP.isHost) return; // guests respawn on the host's "drsp" command
+      /* host's own respawn timer */
+      if (meDown && DUEL.deadT > 0) {
+        DUEL.deadT -= dt;
+        if (DUEL.deadT <= 0) {
+          var kx = player.x, kz = player.z;
+          var kp = MP.players[DUEL.killerPid];
+          if (kp) { kx = kp.tx; kz = kp.tz; }
+          var sp = duelSpawnPoint(kx, kz);
+          duelRespawnSelf(sp.x, sp.z);
+          mpBroadcast({ t: "drsp", pid: 0, x: sp.x, z: sp.z });
+        }
+      }
+      /* remote victims' respawn timers */
+      for (var i = 0; i < MP.plist.length; i++) {
+        var p = MP.plist[i];
+        if (p.down && p.respawnT > 0) {
+          p.respawnT -= dt;
+          if (p.respawnT <= 0) {
+            p.down = false;
+            p.hp = 100;
+            p.prot = 1.5;
+            p.x = p.tx = p.rx; p.z = p.tz = p.rz;
+            p.y = p.ty = blockHeightAt(p.rx, p.rz) + EYE;
+            mpBroadcast({ t: "drsp", pid: p.pid, x: p.rx, z: p.rz });
+          }
+        }
+      }
+    }
+    function duelEnd(by) {
+      DUEL.over = true;
+      S.mode = "over";
+      S.firing = false;
+      localPaused = false;
+      meDown = false;
+      mpPauseNote.classList.add("hidden");
+      pauseOv.classList.add("hidden");
+      downChip.classList.add("hidden");
+      elimChip.classList.add("hidden");
+      xhair.classList.add("hidden");
+      reloadWrap.classList.remove("on");
+      updateLockHint();
+      unlock();
+      var won = by === MP.myPid;
+      overTag.textContent = "Duel over";
+      finalScore.textContent = won ? "VICTORY" : "DEFEAT";
+      var mine = DUEL.kills[MP.myPid] || 0;
+      var best = 0;
+      for (var k in DUEL.kills) {
+        if (+k === MP.myPid) continue;
+        if (DUEL.kills[k] > best) best = DUEL.kills[k];
+      }
+      bestLine.textContent = "Kills — you " + mine + ", best rival " + best;
+      bestLine.classList.remove("newbest");
+      statsGrid.classList.add("hidden");
+      if (MP.isHost) {
+        retryBtn.innerHTML = 'Rematch <span class="dot"></span>';
+        retryBtn.classList.remove("hidden");
+        guestWait.classList.add("hidden");
+      } else {
+        retryBtn.classList.add("hidden");
+        guestWait.textContent = "Waiting for host…";
+        guestWait.classList.remove("hidden");
+      }
+      if (won) sChime(); else sOver();
+      updateDuelHUD();
+      over.classList.remove("hidden");
+    }
+
+    /* --- kill handling (host/solo authoritative) --- */
+    function killEnemy(e, by) {
+      e.dead = true;
+      e.dieT = 0;
+      e.hpG.visible = false;
+      S.alive--;
+      S.kills++;
+      S.score += 50 * S.wave;
+      updateHUD();
+      sThump();
+      maybeDropHpBox(e.g.position.x, e.g.position.z);
+      if (MP.on && MP.isHost) mpBroadcast({ t: "kill", eid: e.id, by: by });
+    }
+    function guestEnemyDead(e) {
+      if (e.dead) return;
+      e.dead = true;
+      e.dieT = 0;
+      e.hpG.visible = false;
+      sThump();
+    }
+
+    /* --- guest-side enemies: spawn from snapshots, interpolate ~100ms --- */
+    var VAR_LIST = [VAR.normal, VAR.husk, VAR.brute];
+    function guestSpawnEnemy(id, vi, x, z, hp) {
+      var e = null;
+      for (var i = 0; i < enemies.length; i++) if (!enemies[i].active) { e = enemies[i]; break; }
+      if (!e) e = makeEnemy();
+      var v = VAR_LIST[vi] || VAR.normal;
+      e.mats = v.mats;
+      applyMats(e);
+      e.vi = vi;
+      e.id = id;
+      MP.eidMap[id] = e;
+      e.scl = v.scl;
+      e.g.scale.setScalar(e.scl);
+      e.flashT = 0;
+      e.g.position.set(x, blockHeightAt(x, z), z);
+      e.g.rotation.set(0, 0, 0);
+      e.armL.rotation.x = 0; e.armR.rotation.x = 0;
+      e.legL.rotation.x = 0; e.legR.rotation.x = 0;
+      e.maxhp = Math.max(1, Math.max(hp, (90 + S.wave * 10) * v.hp));
+      e.hp = hp;
+      e.tx = x; e.tz = z;
+      e.active = true;
+      e.dead = false;
+      e.dieT = 0;
+      e.atkT = 0;
+      e.atkAnim = 0;
+      e.prevNS = 0;
+      e.hpG.visible = true;
+      e.hpFront.scale.x = Math.max(.001, e.hp / e.maxhp);
+      e.g.visible = true;
+      return e;
+    }
+    function updateGuestEnemies(dt, t) {
+      for (var i = 0; i < enemies.length; i++) {
+        var e = enemies[i];
+        if (!e.active) continue;
+        if (e.flashT > 0) {
+          e.flashT -= dt;
+          if (e.flashT <= 0) applyMats(e);
+        }
+        if (e.dead) {
+          e.dieT += dt;
+          e.g.rotation.x = -Math.min(e.dieT * 4, 1.55);
+          if (e.dieT > .42) e.g.position.y -= dt * 2.2;
+          if (e.dieT > 1.05) {
+            e.active = false;
+            e.g.visible = false;
+            if (MP.eidMap[e.id] === e) delete MP.eidMap[e.id];
+          }
+          continue;
+        }
+        var k = Math.min(1, dt * 10);
+        var ox = e.g.position.x, oz = e.g.position.z;
+        e.g.position.x += (e.tx - ox) * k;
+        e.g.position.z += (e.tz - oz) * k;
+        var mvX = e.g.position.x - ox, mvZ = e.g.position.z - oz;
+        var ty = blockHeightAt(e.g.position.x, e.g.position.z);
+        e.g.position.y += (ty - e.g.position.y) * Math.min(1, dt * 12);
+        if (e.atkAnim > 0) {
+          e.atkAnim -= dt;
+          var ap = 1 - e.atkAnim / .3;
+          e.g.rotation.y = Math.atan2(player.x - e.g.position.x, player.z - e.g.position.z);
+          e.g.rotation.x = Math.sin(ap * Math.PI) * .4;
+          e.armL.rotation.x = -1.3 - Math.sin(ap * Math.PI) * .9;
+          e.armR.rotation.x = -1.3 - Math.sin(ap * Math.PI) * .9;
+          if (e.atkAnim <= 0) e.g.rotation.x = 0;
+        } else if (mvX * mvX + mvZ * mvZ > .00002) {
+          e.g.rotation.y = Math.atan2(mvX, mvZ);
+          var esw = Math.sin(t * 7 + e.phase);
+          e.legL.rotation.x = esw * .75;
+          e.legR.rotation.x = -esw * .75;
+          e.armL.rotation.x = -1.35 + esw * .18;
+          e.armR.rotation.x = -1.35 - esw * .18;
+        } else {
+          e.g.rotation.y = Math.atan2(player.x - e.g.position.x, player.z - e.g.position.z);
+          e.legL.rotation.x *= .8;
+          e.legR.rotation.x *= .8;
+          e.armL.rotation.x += (-1.2 - e.armL.rotation.x) * .2;
+          e.armR.rotation.x += (-1.2 - e.armR.rotation.x) * .2;
+        }
+        e.hpG.lookAt(camera.position);
+      }
+    }
+
+    /* --- remote player records + rendering --- */
+    function ensureRemote(pid) {
+      if (MP.players[pid]) return MP.players[pid];
+      var p = {
+        pid: pid,
+        model: makeSoldier(),
+        x: 0, y: blockHeightAt(0, 0) + EYE, z: 0,
+        tx: 0, ty: blockHeightAt(0, 0) + EYE, tz: 0,
+        yaw: 0, tyaw: 0, hp: 100, down: false,
+        moving: false, shooting: false, flashT: 0,
+        prot: 0, respawnT: 0, rx: 0, rz: 0
+      };
+      MP.players[pid] = p;
+      MP.plist.push(p);
+      updateRoomChip();
+      return p;
+    }
+    function removeRemote(pid) {
+      var p = MP.players[pid];
+      if (!p) return;
+      p.model.g.visible = false;
+      p.model.flash.visible = false;
+      freeSoldiers.push(p.model);
+      delete MP.players[pid];
+      var ix = MP.plist.indexOf(p);
+      if (ix >= 0) MP.plist.splice(ix, 1);
+      updateRoomChip();
+      renderLobby();
+      if (MP.isHost) checkAllDown();
+    }
+    function updateRemotePlayers(dt) {
+      for (var i = 0; i < MP.plist.length; i++) {
+        var p = MP.plist[i];
+        var m = p.model;
+        if (p.down || p.hp <= 0) { m.g.visible = false; m.flash.visible = false; continue; }
+        m.g.visible = true;
+        if (p.prot > 0) {
+          /* duel spawn protection: model blinks while it can't take damage */
+          p.prot -= dt;
+          m.g.visible = (Math.floor(worldT * 9) % 2) === 0 || p.prot <= 0;
+        }
+        var k = Math.min(1, dt * 11);
+        p.x += (p.tx - p.x) * k;
+        p.y += (p.ty - p.y) * k;
+        p.z += (p.tz - p.z) * k;
+        var dy = p.tyaw - p.yaw;
+        while (dy > Math.PI) dy -= Math.PI * 2;
+        while (dy < -Math.PI) dy += Math.PI * 2;
+        p.yaw += dy * k;
+        var footY = p.y - EYE;
+        var fy = blockHeightAt(p.x, p.z);
+        if (footY < fy - .02) footY = fy; // never sink into blocks
+        m.g.position.set(p.x, footY, p.z);
+        m.g.rotation.y = p.yaw + Math.PI; // model face is on +z; camera yaw 0 looks down -z
+        if (p.moving) {
+          var sw = Math.sin(worldT * 9 + p.pid * 2);
+          m.legL.rotation.x = sw * .7;
+          m.legR.rotation.x = -sw * .7;
+        } else {
+          m.legL.rotation.x *= .8;
+          m.legR.rotation.x *= .8;
+        }
+        /* arms hold the rifle forward */
+        m.armL.rotation.x += (-1.15 - m.armL.rotation.x) * .25;
+        m.armR.rotation.x += (-1.15 - m.armR.rotation.x) * .25;
+        if (p.flashT > 0) {
+          p.flashT -= dt;
+          m.flash.visible = p.flashT > 0;
+        }
+        m.hpFront.scale.x = Math.max(.001, p.hp / 100);
+        m.hpG.lookAt(camera.position);
+      }
+    }
+
+    /* --- snapshots: host -> all @ ~12Hz, guest "p" -> host @ ~15Hz --- */
+    var pMsg = { t: "p", x: 0, y: 0, z: 0, yaw: 0, pitch: 0, anim: { moving: false, shooting: false } };
+    function sendP() {
+      pMsg.x = r2(player.x); pMsg.y = r2(camY); pMsg.z = r2(player.z);
+      pMsg.yaw = r2(yaw); pMsg.pitch = r2(pitch);
+      pMsg.anim.moving = !!S.movingNow;
+      pMsg.anim.shooting = !!S.firing;
+      netSend(MP.hostConn, pMsg);
+    }
+    function hostSnapshot() {
+      var en = [], i, e;
+      for (i = 0; i < enemies.length; i++) {
+        e = enemies[i];
+        if (!e.active || e.dead) continue; // only live enemies travel
+        en.push([e.id, r2(e.g.position.x), r2(e.g.position.z), Math.round(e.hp), e.vi, e.atkAnim > 0 ? 1 : 0]);
+      }
+      var pl = {};
+      pl[0] = [r2(player.x), r2(camY), r2(player.z), r2(yaw), meDown ? 0 : Math.round(S.hp)];
+      for (i = 0; i < MP.plist.length; i++) {
+        var p = MP.plist[i];
+        pl[p.pid] = [r2(p.tx), r2(p.ty), r2(p.tz), r2(p.tyaw), p.down ? 0 : Math.round(p.hp)];
+      }
+      var bx = [];
+      for (i = 0; i < hpBoxes.length; i++) {
+        if (hpBoxes[i].active) bx.push([hpBoxes[i].id, r2(hpBoxes[i].g.position.x), r2(hpBoxes[i].g.position.z)]);
+      }
+      mpBroadcast({ t: "s", enemies: en, players: pl, wave: S.wave, score: S.score, kills: S.kills, boxes: bx });
+    }
+    function applySnapshot(d) {
+      if (!isGuest()) return; // snapshots only ever steer guests — never the host
+      if (!d.enemies || !d.players) return;
+      var sw = Math.max(1, num(d.wave, S.wave) | 0);
+      var ssc = num(d.score, S.score) | 0;
+      var skl = num(d.kills, S.kills) | 0;
+      if (sw !== S.wave || ssc !== S.score || skl !== S.kills) {
+        S.wave = sw; S.score = ssc; S.kills = skl;
+        updateHUD();
+      }
+      MP.snapStamp++;
+      var i, arr, e;
+      for (i = 0; i < d.enemies.length; i++) {
+        arr = d.enemies[i];
+        if (!arr) continue;
+        var ex2 = num(arr[1], 0), ez2 = num(arr[2], 0), ehp = num(arr[3], 1);
+        e = MP.eidMap[arr[0]];
+        if (!e || !e.active) e = guestSpawnEnemy(arr[0], num(arr[4], 0) | 0, ex2, ez2, ehp);
+        if (e.dead) continue;
+        e.seen = MP.snapStamp;
+        e.tx = ex2; e.tz = ez2;
+        if (ehp < e.hp - .5) {
+          /* hp dropped — a teammate hit it; derive the flinch client-side */
+          spawnDmg(e.g.position.x, e.g.position.y + 2.15 * e.scl, e.g.position.z, Math.max(1, Math.round(e.hp - ehp)));
+          applyFlash(e);
+          e.flashT = .1;
+        }
+        e.hp = ehp;
+        e.hpFront.scale.x = Math.max(.001, e.hp / e.maxhp);
+        if (arr[5] === 1 && e.prevNS !== 1) e.atkAnim = .3;
+        e.prevNS = arr[5];
+      }
+      /* anything alive locally but missing from the snapshot died (missed kill event) */
+      for (i = 0; i < enemies.length; i++) {
+        e = enemies[i];
+        if (e.active && !e.dead && e.seen !== MP.snapStamp) guestEnemyDead(e);
+      }
+      for (var pidKey in d.players) {
+        arr = d.players[pidKey];
+        if (!arr) continue;
+        var np = +pidKey;
+        if (np === MP.myPid) {
+          /* my own record: NEVER touch my camera/position — hp only */
+          var nhp = num(arr[4], S.hp);
+          if (DUEL.on) {
+            /* duel death/respawn is driven by dkill/drsp events, not snapshots */
+            if (!meDown && nhp > 0 && DUEL.protT <= 0) {
+              if (nhp < S.hp - .5) { flashVignette(); S.shake = Math.min(.9, S.shake + .15); }
+              S.hp = nhp; updateHP();
+            }
+            continue;
+          }
+          if (nhp < S.hp - .5 && nhp > 0) { flashVignette(); S.shake = Math.min(.9, S.shake + .15); }
+          if (S.hp > 0 && nhp <= 0) { S.hp = 0; updateHP(); localDown(); }
+          else if (!meDown) { S.hp = nhp; updateHP(); }
+          continue;
+        }
+        var p = ensureRemote(np);
+        p.tx = num(arr[0], p.tx); p.ty = num(arr[1], p.ty); p.tz = num(arr[2], p.tz);
+        p.tyaw = wrapYaw(num(arr[3], p.tyaw));
+        p.hp = num(arr[4], p.hp);
+        p.down = p.hp <= 0;
+        var mdx = p.tx - p.x, mdz = p.tz - p.z;
+        p.moving = (mdx * mdx + mdz * mdz) > .01;
+      }
+      if (d.boxes) {
+        for (i = 0; i < hpBoxes.length; i++) hpBoxes[i].seen = 0;
+        for (i = 0; i < d.boxes.length; i++) {
+          arr = d.boxes[i];
+          if (!arr) continue;
+          var b = findHpBox(arr[0]);
+          if (!b) b = spawnHpBox(num(arr[1], 0), num(arr[2], 0), arr[0]);
+          if (b) b.seen = 1;
+        }
+        for (i = 0; i < hpBoxes.length; i++) {
+          if (hpBoxes[i].active && !hpBoxes[i].seen) despawnHpBox(hpBoxes[i]);
+        }
+      }
+    }
+
+    /* --- message handlers --- */
+    function hostHandle(conn, d) {
+      if (!d || typeof d !== "object") return;
+      var pid = conn._pid;
+      var p = pid != null ? MP.players[pid] : null;
+      switch (d.t) {
+        case "p":
+          if (!p) return;
+          /* every network number passes Number.isFinite before use; yaw wraps hard */
+          p.tx = num(d.x, p.tx); p.ty = num(d.y, p.ty); p.tz = num(d.z, p.tz);
+          p.tyaw = wrapYaw(num(d.yaw, p.tyaw));
+          if (d.anim) { p.moving = !!d.anim.moving; p.shooting = !!d.anim.shooting; }
+          break;
+        case "shot":
+          if (p) p.flashT = .07;
+          if (S.mode === "play" || S.mode === "count") {
+            sGunQ();
+            spawnTracer(num(d.ox, 0), num(d.oy, 0), num(d.oz, 0), num(d.dx, 0), num(d.dy, 0), num(d.dz, 0));
+          }
+          d.pid = pid;
+          mpRelayExcept(conn, d); // other guests see the muzzle flash too
+          break;
+        case "phit":
+          /* duel: a guest reports hitting another player; host applies + broadcasts */
+          if (DUEL.on && pid != null) hostApplyPhit(pid, num(d.pid, -1) | 0, num(d.dmg, 0));
+          break;
+        case "hit":
+          var e = MP.eidMap[d.eid];
+          if (e && e.active && !e.dead && S.mode === "play") {
+            var dmg = Math.max(0, Math.min(120, num(d.dmg, 0)));
+            e.hp -= dmg;
+            e.hpFront.scale.x = Math.max(.001, e.hp / e.maxhp);
+            applyFlash(e);
+            e.flashT = .1;
+            spawnDmg(e.g.position.x, e.g.position.y + 2.15 * e.scl, e.g.position.z, dmg);
+            if (e.hp <= 0) killEnemy(e, pid);
+          }
+          break;
+        case "jump":
+          break; // position sync carries the arc; nothing extra to do
+      }
+    }
+    function guestHandle(d) {
+      if (!d || typeof d !== "object") return;
+      switch (d.t) {
+        case "welcome":
+          MP.myPid = d.pid;
+          if (d.code) MP.code = d.code;
+          mpLobbyCount = d.n || 2;
+          if (d.mode) setMpModeLocal(d.mode);
+          showGuestLobby();
+          break;
+        case "lobby":
+          mpLobbyCount = d.n || mpLobbyCount;
+          renderLobby();
+          break;
+        case "mode":
+          setMpModeLocal(d.m);
+          break;
+        case "start":
+          mpGuestStart(d);
+          break;
+        case "s":
+          if (MP.started && (S.mode === "play" || S.mode === "count")) applySnapshot(d);
+          break;
+        case "kill":
+          var e = MP.eidMap[d.eid];
+          if (e && e.active) guestEnemyDead(e);
+          break;
+        case "box+":
+          spawnHpBox(num(d.x, 0), num(d.z, 0), d.id);
+          break;
+        case "box-":
+          var b = findHpBox(d.id);
+          if (b) despawnHpBox(b);
+          if (d.pid === MP.myPid) {
+            /* instant feedback; the authoritative +20 hp arrives in the next snapshot */
+            sChime();
+            healFlash();
+          }
+          break;
+        case "dmg":
+          if (d.pid === MP.myPid) {
+            if (meDown) break;
+            if (DUEL.on && DUEL.protT > 0) break;
+            S.hp -= Math.max(0, Math.min(120, num(d.amount, 0)));
+            updateHP();
+            flashVignette();
+            S.shake = Math.min(.9, S.shake + .3);
+            sHurt();
+            if (S.hp <= 0) {
+              S.hp = 0;
+              updateHP();
+              if (!DUEL.on) localDown(); // duel death is driven by the host's "dkill"
+            }
+          } else if (MP.players[d.pid]) {
+            MP.players[d.pid].hp = Math.max(0, MP.players[d.pid].hp - Math.max(0, num(d.amount, 0)));
+          }
+          break;
+        case "dkill":
+          if (!DUEL.on) break;
+          if (d.kills) DUEL.kills = sanitizeKills(d.kills);
+          if (d.vic === MP.myPid) localDuelDeath(num(d.by, -1) | 0);
+          else if (MP.players[d.vic]) { MP.players[d.vic].down = true; MP.players[d.vic].hp = 0; }
+          if (d.by === MP.myPid) killFeedback();
+          updateDuelHUD();
+          break;
+        case "drsp":
+          if (!DUEL.on) break;
+          var rsx = num(d.x, 0), rsz = num(d.z, 0);
+          if (d.pid === MP.myPid) {
+            duelRespawnSelf(rsx, rsz);
+          } else if (MP.players[d.pid]) {
+            var rpp = MP.players[d.pid];
+            rpp.down = false;
+            rpp.hp = 100;
+            rpp.prot = 1.5;
+            rpp.x = rpp.tx = rsx; rpp.z = rpp.tz = rsz;
+            rpp.y = rpp.ty = blockHeightAt(rsx, rsz) + EYE;
+          }
+          break;
+        case "dwin":
+          if (!DUEL.on || DUEL.over) break;
+          if (d.kills) DUEL.kills = sanitizeKills(d.kills);
+          duelEnd(num(d.by, -1) | 0);
+          break;
+        case "wave":
+          S.wave = Math.max(1, num(d.n, S.wave) | 0);
+          updateHUD();
+          if (S.mode === "play") { showBanner("WAVE " + S.wave); sHorn(); }
+          if (meDown && !DUEL.on) respawnSelf();
+          break;
+        case "shot":
+          if (MP.players[d.pid]) MP.players[d.pid].flashT = .07;
+          if (S.mode === "play" || S.mode === "count") {
+            sGunQ();
+            spawnTracer(num(d.ox, 0), num(d.oy, 0), num(d.oz, 0), num(d.dx, 0), num(d.dy, 0), num(d.dz, 0));
+          }
+          break;
+        case "over":
+          if (d.stats) {
+            S.score = d.stats.score; S.kills = d.stats.kills; S.wave = d.stats.wave;
+          }
+          if (S.mode !== "over") gameOver();
+          break;
+        case "bye":
+          removeRemote(d.pid);
+          break;
+      }
+    }
+
+    /* --- menu / lobby UI --- */
+    function mpError(txt) {
+      mpNote.textContent = txt;
+      mpNote.classList.remove("hidden");
+    }
+    function updateRoomChip() {
+      if (!MP.code) return;
+      var n = 1 + MP.plist.length;
+      roomChipTxt.textContent = MP.code + " · " + n + (n === 1 ? " player" : " players");
+    }
+    function renderLobby() {
+      var html = "";
+      if (MP.isHost) {
+        html += '<div class="mp-row">You (host)</div>';
+        for (var i = 0; i < MP.plist.length; i++) html += '<div class="mp-row">Friend ' + (i + 1) + '</div>';
+        mpStartBtn.disabled = false; // solo-in-room allowed; friends can join any time pre-start
+      } else if (MP.code) {
+        html += '<div class="mp-row">Room ' + MP.code + ' — ' + mpLobbyCount + (mpLobbyCount === 1 ? " player" : " players") + '</div>';
+      }
+      mpList.innerHTML = html;
+    }
+    function modeLabelText() {
+      return "Mode: " + (mpMode === "duel" ? "Duel · 1v1" : "Co-op · zombies");
+    }
+    function setMpModeLocal(m) {
+      /* updates local mode state + chips/label (no network side effects) */
+      mpMode = m === "duel" ? "duel" : "coop";
+      mpModeCoop.classList.toggle("on", mpMode === "coop");
+      mpModeDuel.classList.toggle("on", mpMode === "duel");
+      mpModeLabel.textContent = modeLabelText();
+    }
+    function showHostLobby() {
+      mpHome.classList.add("hidden");
+      mpJoinRow.classList.add("hidden");
+      mpNote.classList.add("hidden");
+      mpLobby.classList.remove("hidden");
+      mpCodeRow.classList.remove("hidden");
+      mpCodeTxt.textContent = MP.code;
+      mpModeRow.classList.remove("hidden");
+      mpModeLabel.classList.add("hidden");
+      setMpModeLocal(mpMode);
+      mpStartBtn.classList.remove("hidden");
+      mpWaitNote.classList.add("hidden");
+      renderLobby();
+    }
+    function showGuestLobby() {
+      mpHome.classList.add("hidden");
+      mpJoinRow.classList.add("hidden");
+      mpNote.classList.add("hidden");
+      mpLobby.classList.remove("hidden");
+      mpCodeRow.classList.add("hidden");
+      mpModeRow.classList.add("hidden");
+      mpModeLabel.classList.remove("hidden");
+      mpModeLabel.textContent = modeLabelText();
+      mpStartBtn.classList.add("hidden");
+      mpWaitNote.classList.remove("hidden");
+      renderLobby();
+      updateRoomChip();
+    }
+    function mpResetMenuUI() {
+      mpHome.classList.remove("hidden");
+      mpJoinRow.classList.add("hidden");
+      mpLobby.classList.add("hidden");
+      mpNote.classList.add("hidden");
+      mpModeRow.classList.add("hidden");
+      mpModeLabel.classList.add("hidden");
+      mpCreateBtn.disabled = false;
+      mpCreateBtn.textContent = "Create room";
+      mpJoinBtn.disabled = false;
+      mpJoinBtn.textContent = "Join";
+      MP.code = "";
+      setMpModeLocal("coop");
+      while (MP.plist.length) removeRemote(MP.plist[0].pid);
+    }
+
+    /* --- peer lifecycle (lazy: nothing network happens until Create/Join is clicked) --- */
+    var CODE_CHARS = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
+    function genCode() {
+      var c = "";
+      for (var i = 0; i < 4; i++) c += CODE_CHARS[(Math.random() * CODE_CHARS.length) | 0];
+      return c;
+    }
+    function mpShutdown() {
+      var pr = MP.peer;
+      MP.peer = null;
+      MP.conns.length = 0;
+      MP.hostConn = null;
+      MP.on = false;
+      MP.started = false;
+      MP.isHost = false;
+      MP.myPid = 0;
+      DUEL.on = false;
+      if (pr) { try { pr.destroy(); } catch (err) {} }
+    }
+    function mpCreate() {
+      if (typeof Peer === "undefined") { mpError("Multiplayer unavailable — PeerJS failed to load."); return; }
+      if (MP.peer) return;
+      mpNote.classList.add("hidden");
+      mpCreateBtn.disabled = true;
+      mpCreateBtn.textContent = "Creating…";
+      MP.isHost = true;
+      MP.code = genCode();
+      var peer = new Peer("dropzone-dz-" + MP.code); // default public PeerJS cloud
+      MP.peer = peer;
+      peer.on("open", function () {
+        if (MP.peer !== peer) return;
+        MP.retried = 0;
+        mpCreateBtn.disabled = false;
+        mpCreateBtn.textContent = "Create room";
+        showHostLobby();
+      });
+      peer.on("connection", function (conn) {
+        conn.on("open", function () {
+          if (MP.peer !== peer || MP.plist.length >= 3 || MP.started) {
+            try { conn.close(); } catch (err) {}
+            return;
+          }
+          var pid = MP.nextPid++;
+          conn._pid = pid;
+          MP.conns.push(conn);
+          ensureRemote(pid);
+          netSend(conn, { t: "welcome", pid: pid, code: MP.code, n: 1 + MP.plist.length, mode: mpMode });
+          mpBroadcast({ t: "lobby", n: 1 + MP.plist.length });
+          renderLobby();
+          updateRoomChip();
+        });
+        conn.on("data", function (d) { hostHandle(conn, d); });
+        conn.on("close", function () { hostDropConn(conn); });
+        conn.on("error", function () { hostDropConn(conn); });
+      });
+      peer.on("error", function (err) {
+        if (MP.peer !== peer) return;
+        var type = err && err.type;
+        if (type === "unavailable-id" && MP.retried < 3) {
+          MP.retried++;
+          mpShutdown();
+          mpCreateBtn.disabled = false;
+          mpCreate(); // code collision — roll a new one
+          return;
+        }
+        if (MP.started) return; // mid-game signaling hiccup: live P2P links keep working
+        mpCreateBtn.disabled = false;
+        mpCreateBtn.textContent = "Create room";
+        mpError("Could not create a room — check your connection.");
+        mpShutdown();
+      });
+      peer.on("disconnected", function () {
+        if (MP.peer === peer && !peer.destroyed) { try { peer.reconnect(); } catch (err) {} }
+      });
+    }
+    function mpJoin() {
+      if (typeof Peer === "undefined") { mpError("Multiplayer unavailable — PeerJS failed to load."); return; }
+      if (MP.peer) return;
+      var code = (mpJoinInput.value || "").toUpperCase().replace(/[^A-Z0-9]/g, "");
+      if (code.length !== 4) { mpError("Enter the 4-character room code."); return; }
+      mpNote.classList.add("hidden");
+      mpJoinBtn.disabled = true;
+      mpJoinBtn.textContent = "Joining…";
+      MP.isHost = false;
+      var peer = new Peer(); // random id; we dial the host
+      MP.peer = peer;
+      var failed = false;
+      function joinFail(msg) {
+        if (failed) return;
+        failed = true;
+        mpJoinBtn.disabled = false;
+        mpJoinBtn.textContent = "Join";
+        mpError(msg);
+        mpShutdown();
+      }
+      peer.on("open", function () {
+        if (MP.peer !== peer) return;
+        var conn;
+        try { conn = peer.connect("dropzone-dz-" + code, { reliable: true }); }
+        catch (err) { joinFail("Could not connect — try again."); return; }
+        MP.hostConn = conn;
+        MP.code = code;
+        conn.on("open", function () {
+          mpJoinBtn.disabled = false;
+          mpJoinBtn.textContent = "Join";
+        });
+        conn.on("data", guestHandle);
+        conn.on("close", function () { hostLost(); });
+        conn.on("error", function () { hostLost(); });
+      });
+      peer.on("error", function (err) {
+        if (MP.peer !== peer) return;
+        var type = err && err.type;
+        if (type === "peer-unavailable") joinFail("Room not found.");
+        else if (!MP.started) joinFail("Could not connect — try again.");
+      });
+      peer.on("disconnected", function () {
+        if (MP.peer === peer && !peer.destroyed) { try { peer.reconnect(); } catch (err) {} }
+      });
+    }
+    function hostDropConn(conn) {
+      var ix = MP.conns.indexOf(conn);
+      if (ix >= 0) MP.conns.splice(ix, 1);
+      if (conn._pid != null && MP.players[conn._pid]) {
+        var pid = conn._pid;
+        removeRemote(pid); // silent removal of their soldier
+        mpBroadcast({ t: "bye", pid: pid });
+        mpBroadcast({ t: "lobby", n: 1 + MP.plist.length });
+      }
+      renderLobby();
+      updateRoomChip();
+    }
+    function hostLost() {
+      if (MP.started) {
+        S.firing = false;
+        unlock();
+        hostGone.classList.remove("hidden");
+      } else if (MP.peer) {
+        mpShutdown();
+        mpLobby.classList.add("hidden");
+        mpHome.classList.remove("hidden");
+        mpError("Disconnected from the room.");
+      }
+    }
+
+    /* --- match start / restart --- */
+    function mpHostStart() {
+      MP.on = true;
+      MP.started = true;
+      DUEL.on = mpMode === "duel"; // host's lobby choice rides the start message
+      mpBroadcast({ t: "start", seed: 1, mode: mpMode });
+      resetGame();
+      menu.classList.add("hidden");
+      over.classList.add("hidden");
+      hostGone.classList.add("hidden");
+      roomChip.classList.remove("hidden");
+      updateRoomChip();
+      startCountdown();
+      tryLock(); // start click is a user gesture
+    }
+    function mpGuestStart(d) {
+      MP.on = true;
+      MP.started = true;
+      setMpModeLocal(d && d.mode);
+      DUEL.on = mpMode === "duel";
+      resetGame();
+      menu.classList.add("hidden");
+      over.classList.add("hidden");
+      pauseOv.classList.add("hidden");
+      hostGone.classList.add("hidden");
+      roomChip.classList.remove("hidden");
+      updateRoomChip();
+      updateHUD();
+      startCountdown();
+      /* no pointer-lock here: not a user gesture — the lock hint invites a click */
+    }
+
+    /* --- multiplayer UI wiring --- */
+    mpCreateBtn.addEventListener("click", function () { initAudio(); mpCreate(); });
+    mpJoinToggleBtn.addEventListener("click", function () {
+      mpHome.classList.add("hidden");
+      mpJoinRow.classList.remove("hidden");
+      mpNote.classList.add("hidden");
+      try { mpJoinInput.focus(); } catch (err) {}
+    });
+    mpJoinCancelBtn.addEventListener("click", function () {
+      mpJoinRow.classList.add("hidden");
+      mpHome.classList.remove("hidden");
+      mpNote.classList.add("hidden");
+    });
+    mpJoinBtn.addEventListener("click", function () { initAudio(); mpJoin(); });
+    mpJoinInput.addEventListener("input", function () {
+      this.value = this.value.toUpperCase().replace(/[^A-Z0-9]/g, "").slice(0, 4);
+    });
+    mpJoinInput.addEventListener("keydown", function (ev) {
+      ev.stopPropagation();
+      if (ev.key === "Enter") { ev.preventDefault(); initAudio(); mpJoin(); }
+    });
+    mpStartBtn.addEventListener("click", function () {
+      initAudio();
+      if (!MP.isHost || !MP.peer) return;
+      mpHostStart();
+    });
+    function hostPickMode(m) {
+      if (!MP.isHost || !MP.peer || MP.started) return;
+      setMpModeLocal(m);
+      mpBroadcast({ t: "mode", m: mpMode }); // guests' lobby label updates live
+    }
+    mpModeCoop.addEventListener("click", function () { hostPickMode("coop"); });
+    mpModeDuel.addEventListener("click", function () { hostPickMode("duel"); });
+    mpCopyBtn.addEventListener("click", function () {
+      if (!MP.code) return;
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        navigator.clipboard.writeText(MP.code).then(function () {
+          mpCopyBtn.textContent = "Copied";
+          setTimeout(function () { mpCopyBtn.textContent = "Copy"; }, 1200);
+        }, function () {});
+      }
+    });
+    reloadBtn.addEventListener("click", function () { location.reload(); });
+
+    window.addEventListener("beforeunload", function () {
+      if (MP.peer) { try { MP.peer.destroy(); } catch (err) {} }
+    });
+
+    /* ================= MAIN LOOP ================= */
+    var clock = new THREE.Clock();
+    (function tick() {
+      requestAnimationFrame(tick);
+      var dt = Math.min(clock.getDelta(), .05);
+      if (!Number.isFinite(dt) || dt < 0) dt = 0; // NaN/negative dt must never reach the sim
+      worldT += dt;
+      /* voxel clouds drift slowly, even on the menu */
+      cloudMesh.position.x = Math.sin(worldT * .014) * 24;
+      cloudMesh.position.z = Math.cos(worldT * .01) * 12;
+      if (S.mode === "play") updatePlay(dt);
+      else if (S.mode === "count") updateCount(dt);
+      /* multiplayer ticks: host snapshots @ ~12Hz, guest position @ ~15Hz */
+      if (MP.on && MP.started && (S.mode === "play" || S.mode === "count")) {
+        if (MP.isHost) {
+          MP.snapT -= dt;
+          if (MP.snapT <= 0) { MP.snapT = 1 / 12; hostSnapshot(); }
+        } else if (MP.hostConn && MP.hostConn.open) {
+          MP.sendT -= dt;
+          if (MP.sendT <= 0) { MP.sendT = 1 / 15; sendP(); }
+        }
+        updateRemotePlayers(dt);
+      }
+      updateCamera(dt);
+      renderer.render(scene, camera);
+    })();
+  })();
+  </script>
+</body>
+</html>
